@@ -57,8 +57,10 @@ public class ArticleController {
     }
 
     @GetMapping("/{id}")
-    public ApiResponse<Article> detail(@PathVariable Long id) {
-        return ApiResponse.ok(articleService.detail(id, true));
+    public ApiResponse<Article> detail(@RequestHeader(value = "X-Token", required = false) String token,
+                                       @PathVariable Long id) {
+        User user = authService.requireUser(token);
+        return ApiResponse.ok(articleService.detail(id, true, user.getId()));
     }
 
     @PostMapping
@@ -85,18 +87,16 @@ public class ArticleController {
     }
 
     @PostMapping("/{id}/like")
-    public ApiResponse<Void> like(@RequestHeader(value = "X-Token", required = false) String token,
-                                  @PathVariable Long id) {
+    public ApiResponse<Article> like(@RequestHeader(value = "X-Token", required = false) String token,
+                                     @PathVariable Long id) {
         User user = authService.requireUser(token);
-        articleService.like(user.getId(), id);
-        return ApiResponse.ok("点赞成功", null);
+        return ApiResponse.ok("点赞成功", articleService.like(user.getId(), id));
     }
 
     @DeleteMapping("/{id}/like")
-    public ApiResponse<Void> unlike(@RequestHeader(value = "X-Token", required = false) String token,
-                                    @PathVariable Long id) {
+    public ApiResponse<Article> unlike(@RequestHeader(value = "X-Token", required = false) String token,
+                                       @PathVariable Long id) {
         User user = authService.requireUser(token);
-        articleService.unlike(user.getId(), id);
-        return ApiResponse.ok("取消点赞", null);
+        return ApiResponse.ok("已取消点赞", articleService.unlike(user.getId(), id));
     }
 }

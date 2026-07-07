@@ -16,6 +16,8 @@ public class Article {
     private ArticleStatus status;
     private int viewCount;
     private int likeCount;
+    private int commentCount;
+    private boolean likedByCurrentUser;
     private List<Long> tagIds = new ArrayList<Long>();
     private List<String> tagNames = new ArrayList<String>();
     private List<ArticleAttachment> attachments = new ArrayList<ArticleAttachment>();
@@ -44,6 +46,10 @@ public class Article {
     public void setViewCount(int viewCount) { this.viewCount = viewCount; }
     public int getLikeCount() { return likeCount; }
     public void setLikeCount(int likeCount) { this.likeCount = likeCount; }
+    public int getCommentCount() { return commentCount; }
+    public void setCommentCount(int commentCount) { this.commentCount = commentCount; }
+    public boolean isLikedByCurrentUser() { return likedByCurrentUser; }
+    public void setLikedByCurrentUser(boolean likedByCurrentUser) { this.likedByCurrentUser = likedByCurrentUser; }
     public List<Long> getTagIds() { return tagIds; }
     public void setTagIds(List<Long> tagIds) { this.tagIds = tagIds; }
     public List<String> getTagNames() { return tagNames; }

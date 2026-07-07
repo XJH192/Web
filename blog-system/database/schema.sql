@@ -11,6 +11,7 @@ SET NAMES utf8mb4;
 
 SET FOREIGN_KEY_CHECKS = 0;
 DROP TABLE IF EXISTS ai_usage_logs;
+DROP TABLE IF EXISTS notifications;
 DROP TABLE IF EXISTS comments;
 DROP TABLE IF EXISTS article_likes;
 DROP TABLE IF EXISTS article_tags;
@@ -119,7 +120,23 @@ CREATE TABLE comments (
   CONSTRAINT fk_comments_parent FOREIGN KEY (parent_id) REFERENCES comments (id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='评论与回复表';
 
--- 8. AI 使用日志表：记录摘要、大纲、标签推荐、评论审核和问答调用。
+
+-- 8. 通知消息表：保存文章审核、评论、点赞等未读消息。
+CREATE TABLE notifications (
+  id BIGINT NOT NULL AUTO_INCREMENT COMMENT '通知ID',
+  user_id BIGINT NOT NULL COMMENT '接收用户ID',
+  type VARCHAR(40) NOT NULL COMMENT '消息类型',
+  title VARCHAR(120) NOT NULL COMMENT '消息标题',
+  content VARCHAR(500) NOT NULL COMMENT '消息内容',
+  link VARCHAR(255) DEFAULT NULL COMMENT '跳转链接',
+  read_flag TINYINT(1) NOT NULL DEFAULT 0 COMMENT '是否已读：0未读/1已读',
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  PRIMARY KEY (id),
+  KEY idx_notifications_user_read (user_id, read_flag),
+  KEY idx_notifications_created (created_at),
+  CONSTRAINT fk_notifications_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='通知消息表';
+-- 9. AI 使用日志表：记录摘要、大纲、标签推荐、评论审核和问答调用。
 CREATE TABLE ai_usage_logs (
   id BIGINT NOT NULL AUTO_INCREMENT COMMENT '日志ID',
   user_id BIGINT DEFAULT NULL COMMENT '调用用户ID，当前本地规则模拟可为空',

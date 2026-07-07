@@ -5,6 +5,7 @@ import com.tangyuxian.blog.dto.ArticleRequest;
 import com.tangyuxian.blog.model.Article;
 import com.tangyuxian.blog.model.ArticleAttachment;
 import com.tangyuxian.blog.model.ArticleStatus;
+import com.tangyuxian.blog.model.Notification;
 import com.tangyuxian.blog.model.Role;
 import com.tangyuxian.blog.model.Tag;
 import com.tangyuxian.blog.model.User;
@@ -34,21 +35,25 @@ public class ArticleService {
         return filter(repository.listArticles(), keyword, categoryId, tagId, true, user.getId(), false);
     }
 
-    public Article detail(Long id, boolean increaseViews) {
+    public Article detail(Long id, boolean increaseViews, Long viewerId) {
         Article article = repository.findArticleById(id);
         if (article == null) throw new BusinessException("文章不存在");
         if (increaseViews) {
             article.setViewCount(article.getViewCount() + 1);
-            repository.saveArticle(article);
+            article = repository.saveArticle(article);
         }
-        return article;
+        return decorate(article, viewerId);
     }
 
     public Article create(User user, ArticleRequest request) {
         Article article = new Article();
         article.setAuthorId(user.getId());
         apply(article, request, user);
-        return repository.saveArticle(article);
+        Article saved = repository.saveArticle(article);
+        if (saved.getStatus() == ArticleStatus.PENDING) {
+            notifyAdmins("ARTICLE_PENDING", "有新博客等待审核", user.getNickname() + " 提交了《" + saved.getTitle() + "》", "/admin.html#articles");
+        }
+        return decorate(saved, user.getId());
     }
 
     public Article update(User user, Long id, ArticleRequest request) {
@@ -58,14 +63,26 @@ public class ArticleService {
             throw new BusinessException("只能编辑自己的文章");
         }
         apply(article, request, user);
-        return repository.saveArticle(article);
+        Article saved = repository.saveArticle(article);
+        if (saved.getStatus() == ArticleStatus.PENDING) {
+            notifyAdmins("ARTICLE_PENDING", "有博客更新等待审核", user.getNickname() + " 更新了《" + saved.getTitle() + "》", "/admin.html#articles");
+        }
+        return decorate(saved, user.getId());
     }
 
     public Article updateStatus(Long id, String status) {
         Article article = repository.findArticleById(id);
         if (article == null) throw new BusinessException("文章不存在");
         article.setStatus(parseStatus(status, ArticleStatus.PENDING));
-        return repository.saveArticle(article);
+        Article saved = repository.saveArticle(article);
+        if (saved.getAuthorId() != null) {
+            if (saved.getStatus() == ArticleStatus.PUBLISHED) {
+                notifyUser(saved.getAuthorId(), "ARTICLE_PUBLISHED", "博客已通过审核", "《" + saved.getTitle() + "》已上架到首页", "/article.html?id=" + saved.getId());
+            } else if (saved.getStatus() == ArticleStatus.REJECTED) {
+                notifyUser(saved.getAuthorId(), "ARTICLE_REJECTED", "博客未通过审核", "《" + saved.getTitle() + "》已被管理员驳回", "/blog.html#editor");
+            }
+        }
+        return decorate(saved, null);
     }
 
     public void delete(User user, Long id) {
@@ -77,17 +94,25 @@ public class ArticleService {
         repository.deleteArticle(id);
     }
 
-    public void like(Long userId, Long articleId) {
+    public Article like(Long userId, Long articleId) {
         Article article = repository.findArticleById(articleId);
         if (article == null) throw new BusinessException("文章不存在");
         if (article.getStatus() != ArticleStatus.PUBLISHED) throw new BusinessException("文章未上架，不能点赞");
-        repository.likeArticle(userId, articleId);
+        int changed = repository.likeArticle(userId, articleId);
+        Article liked = repository.findArticleById(articleId);
+        if (changed > 0 && liked.getAuthorId() != null && !liked.getAuthorId().equals(userId)) {
+            User liker = repository.findUserById(userId);
+            String nickname = liker == null ? "有用户" : liker.getNickname();
+            notifyUser(liked.getAuthorId(), "ARTICLE_LIKED", "你的博客收到点赞", nickname + " 点赞了《" + liked.getTitle() + "》", "/article.html?id=" + liked.getId());
+        }
+        return decorate(liked, userId);
     }
 
-    public void unlike(Long userId, Long articleId) {
+    public Article unlike(Long userId, Long articleId) {
         Article article = repository.findArticleById(articleId);
         if (article == null) throw new BusinessException("文章不存在");
         repository.unlikeArticle(userId, articleId);
+        return decorate(repository.findArticleById(articleId), userId);
     }
 
     private List<Article> filter(List<Article> source, String keyword, Long categoryId, Long tagId, boolean includeDrafts, Long userId, boolean excludeUser) {
@@ -102,9 +127,16 @@ public class ArticleService {
                 String text = (article.getTitle() + " " + article.getSummary() + " " + article.getContent()).toLowerCase();
                 if (!text.contains(keyword.trim().toLowerCase())) continue;
             }
-            result.add(article);
+            result.add(decorate(article, userId));
         }
         return result;
+    }
+
+    private Article decorate(Article article, Long viewerId) {
+        if (article == null) return null;
+        article.setCommentCount(repository.countApprovedComments(article.getId()));
+        article.setLikedByCurrentUser(repository.hasArticleLike(viewerId, article.getId()));
+        return article;
     }
 
     private void apply(Article article, ArticleRequest request, User user) {
@@ -159,6 +191,25 @@ public class ArticleService {
             if (count >= 8) break;
         }
         return result;
+    }
+
+    private void notifyAdmins(String type, String title, String content, String link) {
+        for (User admin : repository.listUsers()) {
+            if (admin.getRole() == Role.ADMIN && !admin.isBanned()) {
+                notifyUser(admin.getId(), type, title, content, link);
+            }
+        }
+    }
+
+    private void notifyUser(Long userId, String type, String title, String content, String link) {
+        Notification notification = new Notification();
+        notification.setUserId(userId);
+        notification.setType(type);
+        notification.setTitle(title);
+        notification.setContent(content);
+        notification.setLink(link);
+        notification.setReadFlag(false);
+        repository.saveNotification(notification);
     }
 
     private ArticleStatus parseStatus(String status, ArticleStatus fallback) {

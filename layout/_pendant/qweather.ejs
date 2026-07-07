@@ -34,23 +34,71 @@
 
 <script>
   (function () {
-    const presetList = [
-      { name: '青岛崂山区', latitude: 36.107, longitude: 120.468, link: 'https://weather.cma.cn/web/weather/54857.html', aliases: ['崂山', '青岛崂山', 'laoshan'] },
-      { name: '青岛市南区', latitude: 36.066, longitude: 120.382, link: 'https://weather.cma.cn/web/weather/54857.html', aliases: ['市南', '青岛市南'] },
-      { name: '青岛市北区', latitude: 36.087, longitude: 120.374, link: 'https://weather.cma.cn/web/weather/54857.html', aliases: ['市北', '青岛市北'] },
-      { name: '青岛李沧区', latitude: 36.145, longitude: 120.432, link: 'https://weather.cma.cn/web/weather/54857.html', aliases: ['李沧', '青岛李沧'] },
-      { name: '北京市', latitude: 39.904, longitude: 116.407, link: 'https://weather.cma.cn/web/weather/54511.html', aliases: ['北京', 'beijing'] },
-      { name: '北京海淀区', latitude: 39.960, longitude: 116.298, link: 'https://weather.cma.cn/web/weather/54399.html', aliases: ['海淀', '北京海淀'] },
-      { name: '北京朝阳区', latitude: 39.921, longitude: 116.443, link: 'https://weather.cma.cn/web/weather/54433.html', aliases: ['朝阳', '北京朝阳'] },
-      { name: '上海市', latitude: 31.231, longitude: 121.474, link: 'https://weather.cma.cn/web/weather/58362.html', aliases: ['上海', 'shanghai'] },
-      { name: '广州天河区', latitude: 23.135, longitude: 113.361, link: 'https://weather.cma.cn/web/weather/59287.html', aliases: ['天河', '广州天河', '河'] },
-      { name: '深圳南山区', latitude: 22.533, longitude: 113.930, link: 'https://weather.cma.cn/web/weather/59493.html', aliases: ['南山', '深圳南山'] },
-      { name: '杭州西湖区', latitude: 30.259, longitude: 120.130, link: 'https://weather.cma.cn/web/weather/58457.html', aliases: ['西湖', '杭州西湖'] },
-      { name: '南京鼓楼区', latitude: 32.067, longitude: 118.769, link: 'https://weather.cma.cn/web/weather/58238.html', aliases: ['鼓楼', '南京鼓楼'] },
-      { name: '成都武侯区', latitude: 30.642, longitude: 104.043, link: 'https://weather.cma.cn/web/weather/56294.html', aliases: ['武侯', '成都武侯'] },
-      { name: '西安雁塔区', latitude: 34.213, longitude: 108.948, link: 'https://weather.cma.cn/web/weather/57036.html', aliases: ['雁塔', '西安雁塔'] },
-      { name: '武汉洪山区', latitude: 30.500, longitude: 114.343, link: 'https://weather.cma.cn/web/weather/57494.html', aliases: ['洪山', '武汉洪山'] }
-    ];
+    const localLocations = [
+      ['山东省', '青岛市', '崂山区', 36.107, 120.468, 'https://weather.cma.cn/web/weather/54857.html', ['青岛崂山', '崂山', 'laoshan']],
+      ['山东省', '青岛市', '市南区', 36.066, 120.382, 'https://weather.cma.cn/web/weather/54857.html', ['市南', '青岛市南']],
+      ['山东省', '青岛市', '市北区', 36.087, 120.374, 'https://weather.cma.cn/web/weather/54857.html', ['市北', '青岛市北']],
+      ['山东省', '青岛市', '李沧区', 36.145, 120.432, 'https://weather.cma.cn/web/weather/54857.html', ['李沧', '青岛李沧']],
+      ['山东省', '青岛市', '', 36.067, 120.383, 'https://weather.cma.cn/web/weather/54857.html', ['青岛', 'qingdao']],
+      ['山东省', '济南市', '', 36.651, 117.120, 'https://weather.cma.cn/', ['济南', 'jinan']],
+      ['山东省', '烟台市', '', 37.464, 121.447, 'https://weather.cma.cn/', ['烟台']],
+      ['山东省', '潍坊市', '', 36.707, 119.162, 'https://weather.cma.cn/', ['潍坊']],
+      ['山东省', '威海市', '', 37.514, 122.120, 'https://weather.cma.cn/', ['威海']],
+      ['山东省', '临沂市', '', 35.104, 118.356, 'https://weather.cma.cn/', ['临沂']],
+      ['北京市', '北京市', '', 39.904, 116.407, 'https://weather.cma.cn/web/weather/54511.html', ['北京', 'beijing']],
+      ['北京市', '北京市', '海淀区', 39.960, 116.298, 'https://weather.cma.cn/web/weather/54399.html', ['海淀', '北京海淀']],
+      ['北京市', '北京市', '朝阳区', 39.921, 116.443, 'https://weather.cma.cn/web/weather/54433.html', ['朝阳', '北京朝阳']],
+      ['上海市', '上海市', '', 31.231, 121.474, 'https://weather.cma.cn/web/weather/58362.html', ['上海', 'shanghai']],
+      ['广东省', '广州市', '天河区', 23.135, 113.361, 'https://weather.cma.cn/web/weather/59287.html', ['广州', '天河', '广州天河']],
+      ['广东省', '深圳市', '南山区', 22.533, 113.930, 'https://weather.cma.cn/web/weather/59493.html', ['深圳', '南山', '深圳南山']],
+      ['浙江省', '杭州市', '西湖区', 30.259, 120.130, 'https://weather.cma.cn/web/weather/58457.html', ['杭州', '西湖', '杭州西湖']],
+      ['江苏省', '南京市', '鼓楼区', 32.067, 118.769, 'https://weather.cma.cn/web/weather/58238.html', ['南京', '鼓楼', '南京鼓楼']],
+      ['四川省', '成都市', '武侯区', 30.642, 104.043, 'https://weather.cma.cn/web/weather/56294.html', ['成都', '武侯', '成都武侯']],
+      ['陕西省', '西安市', '雁塔区', 34.213, 108.948, 'https://weather.cma.cn/web/weather/57036.html', ['西安', '雁塔', '西安雁塔']],
+      ['湖北省', '武汉市', '洪山区', 30.500, 114.343, 'https://weather.cma.cn/web/weather/57494.html', ['武汉', '洪山', '武汉洪山']],
+      ['河北省', '石家庄市', '', 38.042, 114.514, 'https://weather.cma.cn/', ['河北', '石家庄', 'sjz']],
+      ['河北省', '石家庄市', '长安区', 38.050, 114.539, 'https://weather.cma.cn/', ['长安', '石家庄长安']],
+      ['河北省', '唐山市', '', 39.630, 118.180, 'https://weather.cma.cn/', ['唐山']],
+      ['河北省', '秦皇岛市', '', 39.935, 119.600, 'https://weather.cma.cn/', ['秦皇岛']],
+      ['河北省', '邯郸市', '', 36.625, 114.539, 'https://weather.cma.cn/', ['邯郸']],
+      ['河北省', '邢台市', '', 37.070, 114.504, 'https://weather.cma.cn/', ['邢台']],
+      ['河北省', '保定市', '', 38.873, 115.464, 'https://weather.cma.cn/', ['保定']],
+      ['河北省', '张家口市', '', 40.824, 114.887, 'https://weather.cma.cn/', ['张家口']],
+      ['河北省', '承德市', '', 40.954, 117.962, 'https://weather.cma.cn/', ['承德']],
+      ['河北省', '沧州市', '', 38.304, 116.838, 'https://weather.cma.cn/', ['沧州']],
+      ['河北省', '廊坊市', '', 39.538, 116.683, 'https://weather.cma.cn/', ['廊坊']],
+      ['河北省', '衡水市', '', 37.739, 115.669, 'https://weather.cma.cn/', ['衡水']],
+      ['河北省', '雄安新区', '', 38.990, 115.892, 'https://weather.cma.cn/', ['雄安', '容城', '安新', '雄县']],
+      ['辽宁省', '沈阳市', '', 41.805, 123.431, 'https://weather.cma.cn/', ['辽宁', '沈阳', 'shenyang']],
+      ['辽宁省', '大连市', '', 38.914, 121.614, 'https://weather.cma.cn/', ['大连']],
+      ['辽宁省', '鞍山市', '', 41.108, 122.995, 'https://weather.cma.cn/', ['鞍山']],
+      ['辽宁省', '抚顺市', '', 41.881, 123.957, 'https://weather.cma.cn/', ['抚顺']],
+      ['辽宁省', '本溪市', '', 41.294, 123.766, 'https://weather.cma.cn/', ['本溪']],
+      ['辽宁省', '丹东市', '', 40.129, 124.354, 'https://weather.cma.cn/', ['丹东']],
+      ['辽宁省', '锦州市', '', 41.095, 121.127, 'https://weather.cma.cn/', ['锦州']],
+      ['辽宁省', '营口市', '', 40.667, 122.235, 'https://weather.cma.cn/', ['营口']],
+      ['辽宁省', '辽阳市', '', 41.269, 123.172, 'https://weather.cma.cn/', ['辽阳']],
+      ['辽宁省', '盘锦市', '', 41.120, 122.070, 'https://weather.cma.cn/', ['盘锦']],
+      ['辽宁省', '铁岭市', '', 42.286, 123.842, 'https://weather.cma.cn/', ['铁岭']],
+      ['辽宁省', '朝阳市', '', 41.574, 120.450, 'https://weather.cma.cn/', ['朝阳', '辽宁朝阳']],
+      ['辽宁省', '葫芦岛市', '', 40.711, 120.837, 'https://weather.cma.cn/', ['葫芦岛']]
+    ].map(function (row) {
+      const province = row[0], city = row[1], district = row[2];
+      const name = district ? city + district : city;
+      const label = province === city ? name : province + ' · ' + name;
+      return {
+        province: province,
+        city: city,
+        district: district,
+        name: name,
+        label: label,
+        latitude: row[3],
+        longitude: row[4],
+        link: row[5],
+        aliases: row[6]
+      };
+    });
+
     const els = {
       city: document.getElementById('xjh-weather-city'),
       desc: document.getElementById('xjh-weather-desc'),
@@ -74,7 +122,7 @@
       61: ['小雨', '雨'], 63: ['中雨', '雨'], 65: ['大雨', '雨'], 71: ['小雪', '雪'], 73: ['中雪', '雪'], 75: ['大雪', '雪'],
       80: ['阵雨', '雨'], 81: ['阵雨', '雨'], 82: ['强阵雨', '雨'], 95: ['雷雨', '雷'], 96: ['雷雨', '雷'], 99: ['强雷雨', '雷']
     };
-    let activeLocation = presetList[0];
+    let activeLocation = localLocations[0];
     let searchTimer = null;
     let currentSuggestions = [];
     let activeIndex = -1;
@@ -85,59 +133,78 @@
       const date = new Date(value + 'T00:00:00+08:00');
       return new Intl.DateTimeFormat('zh-CN', { timeZone: 'Asia/Shanghai', weekday: 'short' }).format(date);
     }
-    function normalize(text) { return String(text || '').replace(/[\s·,，。市区县省]/g, '').toLowerCase(); }
+    function normalize(text) {
+      return String(text || '').replace(/[\s·,，。省市区县特别行政新区自治州盟地区]/g, '').toLowerCase();
+    }
+    function compactName(item) {
+      return normalize([item.province, item.city, item.district, item.name].concat(item.aliases || []).join(' '));
+    }
     function scoreLocation(item, keyword) {
       const key = normalize(keyword);
-      if (!key) return 1;
-      const names = [item.name].concat(item.aliases || []).map(normalize);
+      if (!key) return item.name === '青岛市崂山区' ? 100 : 1;
+      const names = [item.province, item.city, item.district, item.name, item.label].concat(item.aliases || []).filter(Boolean).map(normalize);
       let best = 0;
       names.forEach(function (name) {
-        if (name === key) best = Math.max(best, 100);
-        else if (name.indexOf(key) === 0) best = Math.max(best, 80);
-        else if (name.indexOf(key) >= 0) best = Math.max(best, 60);
-        else {
-          let hit = 0;
-          key.split('').forEach(function (ch) { if (name.indexOf(ch) >= 0) hit += 1; });
-          if (hit === key.length) best = Math.max(best, 40 + hit);
-        }
+        if (!name) return;
+        if (name === key) best = Math.max(best, 120);
+        else if (name.indexOf(key) === 0) best = Math.max(best, 95);
+        else if (name.indexOf(key) >= 0) best = Math.max(best, 75);
+        else if (key.indexOf(name) >= 0 && name.length >= 2) best = Math.max(best, 58);
       });
+      if (normalize(item.province) === key) best = Math.max(best, 86);
+      if (keyword.indexOf('市') >= 0 && normalize(keyword).length <= 3 && normalize(item.province) === key) best = Math.max(best, 84);
+      const all = compactName(item);
+      let hit = 0;
+      key.split('').forEach(function (ch) { if (all.indexOf(ch) >= 0) hit += 1; });
+      if (key.length > 1 && hit === key.length) best = Math.max(best, 45 + hit);
       return best;
     }
     function uniqueLocations(items) {
       const seen = {};
       return items.filter(function (item) {
-        const key = normalize(item.name);
+        const key = normalize(item.name + item.latitude + item.longitude);
         if (seen[key]) return false;
         seen[key] = true;
         return true;
       });
     }
     function localMatches(keyword) {
-      return presetList
-        .map(function (item) { return Object.assign({ score: scoreLocation(item, keyword) }, item); })
+      const items = localLocations
+        .map(function (item) { return Object.assign({ score: scoreLocation(item, keyword), source: '本地城市库' }, item); })
         .filter(function (item) { return !keyword || item.score > 0; })
-        .sort(function (a, b) { return b.score - a.score || a.name.length - b.name.length; })
-        .slice(0, 8);
+        .sort(function (a, b) { return b.score - a.score || a.province.localeCompare(b.province, 'zh-CN') || a.name.length - b.name.length; });
+      return uniqueLocations(items).slice(0, 10);
     }
     function escapeHtml(value) {
       return String(value == null ? '' : value).replace(/[&<>"']/g, function (ch) {
         return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[ch];
       });
     }
+    function suggestionNote(keyword, items) {
+      const key = normalize(keyword);
+      if (!keyword || !items.length) return '';
+      if ((key === '河北' || key === '辽宁' || key === '山东') && /市$/.test(keyword.trim())) {
+        return '<div class="xjh-weather-note">没有“' + escapeHtml(keyword.trim()) + '”这个标准城市，已按省份展示下级城市。</div>';
+      }
+      if (keyword.length >= 4 && items.some(function (item) { return keyword.indexOf(item.city.replace('市', '')) >= 0; }) && items.some(function (item) { return keyword.indexOf(item.province.replace('省', '')) >= 0; })) {
+        return '<div class="xjh-weather-note">检测到多个地区关键词，请从下方选择准确城市。</div>';
+      }
+      return '';
+    }
     function renderSuggestions(items, keyword, nextIndex) {
       currentSuggestions = uniqueLocations(items).slice(0, 8);
-      if (currentSuggestions.length) {
-        activeIndex = typeof nextIndex === 'number' ? Math.max(0, Math.min(nextIndex, currentSuggestions.length - 1)) : 0;
-      } else {
-        activeIndex = -1;
-      }
+      if (currentSuggestions.length) activeIndex = typeof nextIndex === 'number' ? Math.max(0, Math.min(nextIndex, currentSuggestions.length - 1)) : 0;
+      else activeIndex = -1;
       if (!currentSuggestions.length) {
-        els.suggestions.innerHTML = '<div class="xjh-weather-empty">没有匹配结果，按查询可尝试联网搜索。</div>';
+        els.suggestions.innerHTML = '<div class="xjh-weather-empty">没有匹配结果。试试输入“青岛”“河北”“石家庄”“大连”这样的城市或区县名。</div>';
       } else {
-        els.suggestions.innerHTML = currentSuggestions.map(function (item, index) {
+        els.suggestions.innerHTML = suggestionNote(keyword, currentSuggestions) + currentSuggestions.map(function (item, index) {
           const active = index === activeIndex ? ' is-active' : '';
-          const sub = item.link && item.link.indexOf('weather.cma.cn/web/weather') >= 0 ? '可打开中央气象台详情' : '联网匹配结果';
-          return '<button type="button" class="xjh-weather-option' + active + '" data-weather-index="' + index + '" role="option"><span>' + escapeHtml(item.name) + '</span><small>' + escapeHtml(sub) + '</small></button>';
+          const badge = item.source === '联网匹配' ? '联网' : (normalize(item.province) === normalize(keyword) ? '省份' : '推荐');
+          return '<button type="button" class="xjh-weather-option' + active + '" data-weather-index="' + index + '" role="option">'
+            + '<span><b>' + escapeHtml(item.name) + '</b><em>' + escapeHtml(badge) + '</em></span>'
+            + '<small>' + escapeHtml(item.province === item.city ? item.province : item.province + ' / ' + item.city) + (item.district ? ' / ' + escapeHtml(item.district) : '') + '</small>'
+            + '</button>';
         }).join('');
       }
       els.suggestions.hidden = false;
@@ -148,20 +215,38 @@
       els.input.setAttribute('aria-expanded', 'false');
     }
     async function remoteMatches(keyword) {
-      const url = 'https://geocoding-api.open-meteo.com/v1/search?count=6&language=zh&format=json&name=' + encodeURIComponent(keyword);
+      const key = normalize(keyword);
+      if (!key || key.length < 2) return [];
+      const url = 'https://geocoding-api.open-meteo.com/v1/search?count=8&language=zh&format=json&countryCode=CN&name=' + encodeURIComponent(keyword);
       const response = await fetch(url);
       if (!response.ok) return [];
       const data = await response.json();
-      return (data.results || []).map(function (city) {
-        const label = city.admin1 && city.admin1 !== city.name ? city.name + ' · ' + city.admin1 : city.name;
-        return { name: label, latitude: city.latitude, longitude: city.longitude, link: 'https://weather.cma.cn/' };
+      return (data.results || []).filter(function (city) {
+        if (city.country_code && city.country_code !== 'CN') return false;
+        const label = [city.admin1, city.admin2, city.name].filter(Boolean).join('');
+        const normalized = normalize(label);
+        return normalized.indexOf(key) >= 0 || key.indexOf(normalize(city.name)) >= 0;
+      }).map(function (city) {
+        const province = city.admin1 || '中国';
+        const cityName = city.name || province;
+        return {
+          province: province,
+          city: city.admin2 || cityName,
+          district: '',
+          name: cityName,
+          label: province + ' · ' + cityName,
+          latitude: city.latitude,
+          longitude: city.longitude,
+          link: 'https://weather.cma.cn/',
+          aliases: [],
+          source: '联网匹配',
+          score: 30
+        };
       });
     }
     async function resolveLocation(name) {
-      const exact = presetList.find(function (item) { return normalize(item.name) === normalize(name); });
-      if (exact) return exact;
-      const local = localMatches(name)[0];
-      if (local && local.score >= 40) return local;
+      const locals = localMatches(name);
+      if (locals.length && locals[0].score >= 45) return locals[0];
       const remote = await remoteMatches(name);
       if (remote.length) return remote[0];
       throw new Error('没有找到这个城市或区县');
@@ -169,7 +254,7 @@
     async function updateSuggestions(keyword) {
       const locals = localMatches(keyword);
       renderSuggestions(locals, keyword);
-      if (!keyword || keyword.trim().length < 2) return;
+      if (!keyword || keyword.trim().length < 3 || (locals[0] && locals[0].score >= 75)) return;
       try {
         const remotes = await remoteMatches(keyword.trim());
         renderSuggestions(locals.concat(remotes), keyword);
@@ -233,7 +318,7 @@
     els.input.addEventListener('input', function () {
       clearTimeout(searchTimer);
       renderSuggestions(localMatches(els.input.value), els.input.value);
-      searchTimer = setTimeout(function () { updateSuggestions(els.input.value); }, 180);
+      searchTimer = setTimeout(function () { updateSuggestions(els.input.value); }, 160);
     });
     els.input.addEventListener('keydown', function (event) {
       if (event.key === 'ArrowDown') { event.preventDefault(); moveActive(1); }
@@ -255,7 +340,7 @@
     els.refresh.addEventListener('click', function () { loadWeather(activeLocation); });
 
     const saved = localStorage.getItem('xjhWeatherCity') || '青岛崂山区';
-    resolveLocation(saved).then(loadWeather).catch(function () { loadWeather(presetList[0]); });
+    resolveLocation(saved).then(loadWeather).catch(function () { loadWeather(localLocations[0]); });
   }());
 </script>
 
@@ -362,32 +447,52 @@
   .xjh-weather-suggestions {
     position: absolute;
     left: 0;
-    right: 48px;
-    top: calc(100% + 6px);
+    right: 0;
+    top: calc(100% + 7px);
     z-index: 60;
-    max-height: 220px;
+    max-height: 238px;
     overflow: auto;
     border: 1px solid rgba(230, 114, 73, .22);
-    border-radius: 10px;
-    background: #2f2926;
-    box-shadow: 0 8px 20px rgba(47, 36, 31, .18);
-    padding: 5px;
+    border-radius: 11px;
+    background: rgba(255, 250, 246, .98);
+    box-shadow: 0 6px 18px rgba(87, 48, 31, .16);
+    padding: 6px;
   }
   .xjh-weather-option {
     width: 100%;
-    min-height: 42px;
+    min-height: 46px;
     border: 0;
-    border-radius: 8px;
-    padding: 7px 9px;
+    border-radius: 9px;
+    padding: 8px 9px;
     background: transparent;
-    color: #fffaf6;
+    color: #30231d;
     display: grid;
-    gap: 2px;
+    gap: 3px;
     text-align: left;
     cursor: pointer;
   }
-  .xjh-weather-option small { color: rgba(255, 250, 246, .72); font-size: 12px; }
+  .xjh-weather-option span { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .xjh-weather-option b { font-size: 13px; color: #2b211d; }
+  .xjh-weather-option em {
+    border-radius: 999px;
+    padding: 2px 6px;
+    background: rgba(230, 114, 73, .12);
+    color: #c95531;
+    font-style: normal;
+    font-size: 11px;
+    font-weight: 800;
+  }
+  .xjh-weather-option small { color: #76594c; font-size: 12px; }
   .xjh-weather-option:hover,
-  .xjh-weather-option.is-active { background: rgba(230, 114, 73, .28); }
-  .xjh-weather-empty { padding: 10px; color: rgba(255, 250, 246, .8); font-size: 12px; line-height: 1.6; }
+  .xjh-weather-option.is-active { background: rgba(230, 114, 73, .12); }
+  .xjh-weather-note,
+  .xjh-weather-empty {
+    margin: 2px 2px 6px;
+    border-radius: 8px;
+    padding: 8px 9px;
+    background: rgba(230, 114, 73, .09);
+    color: #765143;
+    font-size: 12px;
+    line-height: 1.55;
+  }
 </style>

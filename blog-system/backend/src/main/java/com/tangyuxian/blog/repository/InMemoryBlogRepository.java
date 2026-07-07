@@ -9,6 +9,7 @@ import com.tangyuxian.blog.model.ArticleStatus;
 import com.tangyuxian.blog.model.Category;
 import com.tangyuxian.blog.model.Comment;
 import com.tangyuxian.blog.model.CommentStatus;
+import com.tangyuxian.blog.model.Notification;
 import com.tangyuxian.blog.model.Role;
 import com.tangyuxian.blog.model.Tag;
 import com.tangyuxian.blog.model.User;
@@ -43,6 +44,7 @@ public class InMemoryBlogRepository {
         tryExecute("ALTER TABLE users ADD COLUMN banned TINYINT(1) NOT NULL DEFAULT 0 COMMENT '是否封禁' AFTER role");
         tryExecute("ALTER TABLE articles ADD COLUMN like_count INT NOT NULL DEFAULT 0 COMMENT '点赞数' AFTER view_count");
         tryExecute("ALTER TABLE articles ADD COLUMN attachments_json LONGTEXT NULL COMMENT '文章附件JSON，保存图片/PPT等上传文件' AFTER content");
+        tryExecute("CREATE TABLE IF NOT EXISTS notifications (id BIGINT NOT NULL AUTO_INCREMENT, user_id BIGINT NOT NULL, type VARCHAR(40) NOT NULL, title VARCHAR(120) NOT NULL, content VARCHAR(500) NOT NULL, link VARCHAR(255) DEFAULT NULL, read_flag TINYINT(1) NOT NULL DEFAULT 0, created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY(id), KEY idx_notifications_user_read(user_id, read_flag), KEY idx_notifications_created(created_at), CONSTRAINT fk_notifications_user FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='通知消息表'");
         tryExecute("CREATE TABLE IF NOT EXISTS article_likes (article_id BIGINT NOT NULL COMMENT '文章ID', user_id BIGINT NOT NULL COMMENT '点赞用户ID', created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '点赞时间', PRIMARY KEY(article_id, user_id), KEY idx_article_likes_user(user_id), CONSTRAINT fk_article_likes_article FOREIGN KEY(article_id) REFERENCES articles(id) ON DELETE CASCADE, CONSTRAINT fk_article_likes_user FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='文章点赞表'");
     }
 
@@ -221,6 +223,47 @@ public class InMemoryBlogRepository {
         return changed;
     }
 
+    public boolean hasArticleLike(Long userId, Long articleId) {
+        if (userId == null || articleId == null) return false;
+        Integer total = jdbc.queryForObject("SELECT COUNT(*) FROM article_likes WHERE article_id=? AND user_id=?", Integer.class, articleId, userId);
+        return total != null && total > 0;
+    }
+
+    public int countApprovedComments(Long articleId) {
+        Integer total = jdbc.queryForObject("SELECT COUNT(*) FROM comments WHERE article_id=? AND status='APPROVED'", Integer.class, articleId);
+        return total == null ? 0 : total;
+    }
+
+    public Notification saveNotification(Notification notification) {
+        if (notification == null || notification.getUserId() == null) return notification;
+        if (notification.getId() == null) {
+            Long id = insertAndReturnId(
+                    "INSERT INTO notifications(user_id, type, title, content, link, read_flag) VALUES (?, ?, ?, ?, ?, ?)",
+                    notification.getUserId(), notification.getType(), notification.getTitle(), notification.getContent(), notification.getLink(), notification.isReadFlag()
+            );
+            notification.setId(id);
+            return findNotificationById(id);
+        }
+        jdbc.update("UPDATE notifications SET user_id=?, type=?, title=?, content=?, link=?, read_flag=? WHERE id=?",
+                notification.getUserId(), notification.getType(), notification.getTitle(), notification.getContent(), notification.getLink(), notification.isReadFlag(), notification.getId());
+        return findNotificationById(notification.getId());
+    }
+
+    public Notification findNotificationById(Long id) {
+        return queryOne("SELECT * FROM notifications WHERE id=?", notificationMapper(), id);
+    }
+
+    public List<Notification> listNotifications(Long userId, boolean unreadOnly) {
+        if (unreadOnly) {
+            return jdbc.query("SELECT * FROM notifications WHERE user_id=? AND read_flag=0 ORDER BY id DESC", notificationMapper(), userId);
+        }
+        return jdbc.query("SELECT * FROM notifications WHERE user_id=? ORDER BY id DESC LIMIT 30", notificationMapper(), userId);
+    }
+
+    public void markNotificationsRead(Long userId) {
+        jdbc.update("UPDATE notifications SET read_flag=1 WHERE user_id=? AND read_flag=0", userId);
+    }
+
     private void refreshArticleLikeCount(Long articleId) {
         Integer total = jdbc.queryForObject("SELECT COUNT(*) FROM article_likes WHERE article_id=?", Integer.class, articleId);
         jdbc.update("UPDATE articles SET like_count=? WHERE id=?", total == null ? 0 : total, articleId);
@@ -305,6 +348,7 @@ public class InMemoryBlogRepository {
                 article.setStatus(ArticleStatus.valueOf(rs.getString("status")));
                 article.setViewCount(rs.getInt("view_count"));
                 article.setLikeCount(intColumn(rs, "like_count"));
+                article.setCommentCount(countApprovedComments(article.getId()));
                 article.setCreatedAt(time(rs, "created_at"));
                 article.setUpdatedAt(time(rs, "updated_at"));
                 article.setTagIds(listArticleTagIds(article.getId()));
@@ -344,6 +388,24 @@ public class InMemoryBlogRepository {
                         rs.getString("feature"),
                         rs.getString("prompt"),
                         rs.getString("result"),
+                        time(rs, "created_at")
+                );
+            }
+        };
+    }
+
+    private RowMapper<Notification> notificationMapper() {
+        return new RowMapper<Notification>() {
+            @Override
+            public Notification mapRow(ResultSet rs, int rowNum) throws SQLException {
+                return new Notification(
+                        rs.getLong("id"),
+                        rs.getLong("user_id"),
+                        rs.getString("type"),
+                        rs.getString("title"),
+                        rs.getString("content"),
+                        rs.getString("link"),
+                        booleanColumn(rs, "read_flag"),
                         time(rs, "created_at")
                 );
             }

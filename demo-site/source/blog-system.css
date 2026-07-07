@@ -620,3 +620,188 @@
   .article-inline-toc { position: static; order: -1; }
   .tag-compose { grid-template-columns: 1fr; }
 }
+
+.attachment-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin-top: 2px;
+}
+
+.attachment-chip {
+  max-width: 220px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid rgba(198, 112, 77, .2);
+  border-radius: 999px;
+  padding: 5px 9px;
+  background: rgba(255, 255, 255, .72);
+  color: var(--blog-muted);
+  font-size: 12px;
+  font-weight: 700;
+  text-decoration: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.attachment-chip span,
+.attachment-chip.more {
+  color: var(--blog-primary-strong);
+}
+
+.attachment-chip:hover,
+.attachment-chip:focus-visible {
+  border-color: var(--blog-border-strong);
+  background: var(--blog-primary-bg);
+  color: var(--blog-primary-strong);
+}
+
+.article-detail-actions {
+  margin: 8px 0 14px;
+}
+
+.blog-app button.umaru-like {
+  border-color: rgba(230, 114, 73, .36);
+  background: #fff;
+  color: var(--blog-primary-strong);
+  gap: 8px;
+}
+
+.blog-app button.umaru-like:hover {
+  background: rgba(230, 114, 73, .1);
+  color: var(--blog-primary-strong);
+}
+
+.blog-app button.umaru-like.is-liked {
+  border-color: #e67249;
+  background: #e67249;
+  color: #fff;
+}
+
+.blog-app button.umaru-like.is-liked:hover {
+  background: #c95531;
+  color: #fff;
+}
+
+.umaru-like-icon {
+  width: 22px;
+  height: 22px;
+  flex: 0 0 auto;
+}
+
+.umaru-hood {
+  fill: transparent;
+  stroke: currentColor;
+  stroke-width: 2.1;
+  stroke-linejoin: round;
+}
+
+.umaru-face,
+.umaru-mouth {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+}
+
+.umaru-eye { fill: currentColor; }
+
+.umaru-like.is-liked .umaru-hood {
+  fill: rgba(255, 255, 255, .18);
+}
+
+.blog-notice-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 1300;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  background: rgba(47, 36, 31, .38);
+  backdrop-filter: blur(7px);
+  -webkit-backdrop-filter: blur(7px);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity .18s ease, visibility .18s ease;
+}
+
+.blog-notice-modal.is-visible {
+  opacity: 1;
+  visibility: visible;
+}
+
+.blog-notice-dialog {
+  position: relative;
+  width: min(440px, calc(100vw - 32px));
+  max-height: min(620px, calc(100vh - 40px));
+  overflow: auto;
+  border: 1px solid rgba(198, 112, 77, .28);
+  border-radius: 14px;
+  padding: 22px;
+  background: rgba(255, 250, 246, .98);
+  color: var(--blog-ink, #2f241f);
+  box-shadow: 0 8px 24px rgba(47, 36, 31, .18);
+  transform: translateY(10px) scale(.98);
+  transition: transform .18s ease;
+}
+
+.blog-notice-modal.is-visible .blog-notice-dialog {
+  transform: translateY(0) scale(1);
+}
+
+.blog-notice-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 32px;
+  height: 32px;
+  min-height: 32px !important;
+  border-radius: 9px !important;
+  padding: 0 !important;
+}
+
+.blog-notice-dialog h2 {
+  margin: 0 34px 12px 0;
+  color: var(--blog-ink, #2f241f);
+  font-size: 22px;
+  line-height: 1.3;
+}
+
+.blog-notice-list {
+  display: grid;
+  gap: 10px;
+}
+
+.blog-notice-item {
+  display: grid;
+  gap: 5px;
+  border: 1px solid rgba(198, 112, 77, .18);
+  border-radius: 10px;
+  padding: 11px;
+  background: rgba(255, 255, 255, .78);
+}
+
+.blog-notice-item strong {
+  color: var(--blog-ink, #2f241f);
+}
+
+.blog-notice-item p,
+.blog-notice-item small {
+  margin: 0;
+  color: var(--blog-muted, #665247);
+  line-height: 1.6;
+}
+
+.blog-notice-item a {
+  margin-left: 8px;
+  color: var(--blog-primary-strong, #c95531);
+  font-weight: 800;
+  text-decoration: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .blog-notice-modal,
+  .blog-notice-dialog { transition: none; }
+}

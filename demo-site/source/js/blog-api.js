@@ -259,6 +259,94 @@
       return `<a class="attachment-link" href="${url}" download="${title}"><span><strong>${title}</strong><small>${escapeHtml(fileKind(item))} · ${formatBytes(item.size)}</small></span><span>下载</span></a>`;
     }).join('')}</div></section>`;
   }
+  function renderCompactAttachments(attachments) {
+    const list = normalizeAttachments(attachments);
+    if (!list.length) return '';
+    return `<div class="attachment-strip">${list.slice(0, 3).map(function (item) {
+      const url = escapeHtml(safeDataUrl(item.dataUrl));
+      const title = escapeHtml(item.name);
+      return `<a class="attachment-chip" href="${url}" download="${title}" title="${title}"><span>${escapeHtml(fileKind(item))}</span>${title}</a>`;
+    }).join('')}${list.length > 3 ? `<span class="attachment-chip more">+${list.length - 3}</span>` : ''}</div>`;
+  }
+  function articleStats(article) {
+    return `点赞 ${article.likeCount || 0} | 评论 ${article.commentCount || 0} | 阅读 ${article.viewCount || 0}`;
+  }
+  function likeButton(article) {
+    const liked = !!article.likedByCurrentUser;
+    return `<button type="button" class="umaru-like ${liked ? 'is-liked' : ''}" data-like-article="${article.id}" data-liked="${liked ? 'true' : 'false'}" aria-pressed="${liked ? 'true' : 'false'}">
+      <svg class="umaru-like-icon" viewBox="0 0 32 32" aria-hidden="true">
+        <path class="umaru-hood" d="M16 4c6.1 0 11 4.7 11 10.8 0 7.2-5.2 12.2-11 12.2S5 22 5 14.8C5 8.7 9.9 4 16 4Z" />
+        <path class="umaru-face" d="M10.5 15.5c1.2-1.4 2.8-2.1 5.5-2.1s4.3.7 5.5 2.1" />
+        <path class="umaru-mouth" d="M12.4 20.2c2.3 1.6 4.9 1.6 7.2 0" />
+        <circle class="umaru-eye" cx="12" cy="17" r="1.2" />
+        <circle class="umaru-eye" cx="20" cy="17" r="1.2" />
+      </svg>
+      <span>${liked ? '已点赞' : '点赞'} ${article.likeCount || 0}</span>
+    </button>`;
+  }
+  function showNoticeModal(title, items, onClose) {
+    const list = Array.isArray(items) ? items : [];
+    if (!list.length) return;
+    let modal = $('blog-notice-modal');
+    if (!modal) {
+      modal = document.createElement('div');
+      modal.id = 'blog-notice-modal';
+      modal.className = 'blog-notice-modal';
+      modal.setAttribute('aria-hidden', 'true');
+      document.body.appendChild(modal);
+    }
+    modal.innerHTML = `<section class="blog-notice-dialog" role="dialog" aria-modal="true" aria-labelledby="blog-notice-title">
+      <button type="button" class="blog-notice-close" aria-label="关闭">×</button>
+      <p class="section-kicker">消息提醒</p>
+      <h2 id="blog-notice-title">${escapeHtml(title || '你有新消息')}</h2>
+      <div class="blog-notice-list">${list.map(function (item) {
+        const link = item.link ? `<a href="${escapeHtml(item.link)}">查看</a>` : '';
+        return `<article class="blog-notice-item"><strong>${escapeHtml(item.title || '新消息')}</strong><p>${escapeHtml(item.content || '')}</p><small>${formatDate(item.createdAt)} ${link}</small></article>`;
+      }).join('')}</div>
+    </section>`;
+    function closeModal() {
+      modal.classList.remove('is-visible');
+      modal.setAttribute('aria-hidden', 'true');
+      document.body.classList.remove('blog-modal-open');
+      document.body.style.overflow = '';
+      if (onClose) onClose();
+      document.removeEventListener('keydown', onKeydown);
+    }
+    function onKeydown(event) { if (event.key === 'Escape') closeModal(); }
+    modal.addEventListener('click', function handleClick(event) {
+      if (event.target === modal || event.target.closest('.blog-notice-close')) {
+        modal.removeEventListener('click', handleClick);
+        closeModal();
+      }
+    });
+    document.addEventListener('keydown', onKeydown);
+    document.body.classList.add('blog-modal-open');
+    document.body.style.overflow = 'hidden';
+    modal.classList.add('is-visible');
+    modal.setAttribute('aria-hidden', 'false');
+    const close = modal.querySelector('.blog-notice-close');
+    if (close) close.focus();
+  }
+  async function showUnreadNotifications(title) {
+    try {
+      const items = await api('/notifications?unread=true');
+      if (items && items.length) {
+        showNoticeModal(title || '你有新消息', items, function () {
+          api('/notifications/read', { method: 'PUT' }).catch(function () {});
+        });
+      }
+    } catch (error) {}
+  }
+  function showAdminReviewNotice(articles, comments) {
+    if (sessionStorage.getItem('xjhAdminReviewNoticeShown')) return;
+    const pendingArticles = (articles || []).filter(item => item.status === 'PENDING');
+    const pendingComments = (comments || []).filter(item => item.status === 'PENDING');
+    const items = pendingArticles.slice(0, 4).map(item => ({ title: '待审核博客', content: `《${item.title}》等待审核上架`, link: '/admin.html#articles', createdAt: item.createdAt }))
+      .concat(pendingComments.slice(0, 4).map(item => ({ title: '待审核评论', content: `${item.nickname || '用户'} 评论了《${item.articleTitle || '文章'}》`, link: '/admin.html#comments', createdAt: item.createdAt })));
+    if (!items.length) return;
+    sessionStorage.setItem('xjhAdminReviewNoticeShown', '1');
+    showNoticeModal('后台有待审核内容', items);
+  }
   function renderArticleContent(content, attachments) {
     const lines = String(content || '').split(/\r?\n/);
     const toc = [];
@@ -417,16 +505,17 @@
           <article class="article-card feed-card">
             <div class="article-card-head">
               <span class="status-pill success">已上架</span>
-              <span class="article-meta">点赞 ${article.likeCount || 0} | 阅读 ${article.viewCount || 0}</span>
+              <span class="article-meta">${articleStats(article)}</span>
             </div>
             <h3>${escapeHtml(article.title)}</h3>
             <p class="article-meta">作者：${escapeHtml(article.authorName)} | 分类：${escapeHtml(article.categoryName)} | ${formatDate(article.createdAt)}</p>
             <p>${escapeHtml(article.summary || textPreview(article.content, 140))}</p>
             <p>${(article.tagNames || []).map(t => `<span class="tag-pill">${escapeHtml(t)}</span>`).join('')}</p>
+            ${renderCompactAttachments(article.attachments)}
             <div class="article-actions">
               <a class="blog-link-btn" href="/article.html?id=${article.id}">查看全文</a>
-              <button type="button" class="secondary" data-home-like="${article.id}">点赞</button>
-              <button type="button" class="secondary" data-home-comments="${article.id}">查看评论</button>
+              ${likeButton(article)}
+              <button type="button" class="secondary" data-home-comments="${article.id}">查看评论 ${article.commentCount || 0}</button>
             </div>
             <div class="home-comment-box" data-comment-box="${article.id}">
               <form data-home-comment-form="${article.id}" class="blog-form inline-comment-form">
@@ -457,12 +546,13 @@
           <article class="article-card">
             <div class="article-card-head">
               <span class="status-pill ${statusClass(article.status)}">${statusText(article.status)}</span>
-              <span class="article-meta">点赞 ${article.likeCount || 0} | 阅读 ${article.viewCount || 0}</span>
+              <span class="article-meta">${articleStats(article)}</span>
             </div>
             <h3>${escapeHtml(article.title)}</h3>
             <p class="article-meta">${escapeHtml(article.categoryName)} | ${formatDate(article.createdAt)}</p>
             <p>${escapeHtml(article.summary || textPreview(article.content, 120))}</p>
             <p>${(article.tagNames || []).map(t => `<span class="tag-pill">${escapeHtml(t)}</span>`).join('')}</p>
+            ${renderCompactAttachments(article.attachments)}
             <div class="article-actions">
               <a class="blog-link-btn" href="/article.html?id=${article.id}">查看</a>
               <button type="button" class="secondary" data-edit="${article.id}">编辑</button>
@@ -478,17 +568,22 @@
 
     $('home-search-btn').addEventListener('click', loadHomeArticles);
     $('home-article-list').addEventListener('click', async function (event) {
-      const likeId = event.target.getAttribute('data-home-like');
-      const commentsId = event.target.getAttribute('data-home-comments');
+      const likeButtonEl = event.target.closest('[data-like-article]');
+      const commentsButtonEl = event.target.closest('[data-home-comments]');
+      const likeId = likeButtonEl ? likeButtonEl.getAttribute('data-like-article') : null;
+      const commentsId = commentsButtonEl ? commentsButtonEl.getAttribute('data-home-comments') : null;
       try {
         if (likeId) {
-          await api('/articles/' + likeId + '/like', { method: 'POST' });
-          show('home-status', '点赞成功');
+          const liked = likeButtonEl.getAttribute('data-liked') === 'true';
+          likeButtonEl.disabled = true;
+          await api('/articles/' + likeId + '/like', { method: liked ? 'DELETE' : 'POST' });
+          show('home-status', liked ? '已取消点赞' : '点赞成功');
           await loadHomeArticles();
         }
         if (commentsId) await loadHomeComments(commentsId);
       } catch (error) {
         show('home-status', error.message);
+        if (likeButtonEl) likeButtonEl.disabled = false;
       }
     });
     $('home-article-list').addEventListener('submit', async function (event) {
@@ -614,6 +709,7 @@
 
     await loadHomeArticles();
     await loadMyArticles();
+    await showUnreadNotifications('你有新的博客消息');
   }
 
   async function initArticlePage() {
@@ -624,8 +720,9 @@
       const article = await api('/articles/' + id);
       $('article-detail').innerHTML = `
         <h1>${escapeHtml(article.title)}</h1>
-        <p class="article-meta">作者：${escapeHtml(article.authorName)} | 分类：${escapeHtml(article.categoryName)} | ${formatDate(article.createdAt)} | 阅读 ${article.viewCount} | 点赞 ${article.likeCount || 0}</p>
+        <p class="article-meta">作者：${escapeHtml(article.authorName)} | 分类：${escapeHtml(article.categoryName)} | ${formatDate(article.createdAt)} | ${articleStats(article)}</p>
         <p><span class="status-pill ${statusClass(article.status)}">${statusText(article.status)}</span> ${(article.tagNames || []).map(t => `<span class="tag-pill">${escapeHtml(t)}</span>`).join('')}</p>
+        <div class="article-detail-actions">${likeButton(article)}</div>
         ${renderArticleContent(article.content, article.attachments || [])}
       `;
     }
@@ -639,7 +736,20 @@
         </div>
       `).join('') || '<p class="blog-muted">暂无已通过评论。</p>';
     }
-    $('article-detail').addEventListener('click', function (event) {
+    $('article-detail').addEventListener('click', async function (event) {
+      const likeButtonEl = event.target.closest('[data-like-article]');
+      if (likeButtonEl) {
+        try {
+          const liked = likeButtonEl.getAttribute('data-liked') === 'true';
+          likeButtonEl.disabled = true;
+          await api('/articles/' + likeButtonEl.getAttribute('data-like-article') + '/like', { method: liked ? 'DELETE' : 'POST' });
+          await loadDetail();
+        } catch (error) {
+          alert(error.message);
+          likeButtonEl.disabled = false;
+        }
+        return;
+      }
       const link = event.target.closest('[data-article-toc]');
       if (!link) return;
       const target = document.querySelector(link.getAttribute('href'));
@@ -709,8 +819,9 @@
         </div>`).join('') || '<p class="blog-muted">暂无用户。</p>';
         $('admin-articles').innerHTML = articles.map(a => `<div class="admin-row">
           <strong>#${a.id} ${escapeHtml(a.title)}</strong>
-          <span><span class="status-pill ${statusClass(a.status)}">${statusText(a.status)}</span> | 作者 ${escapeHtml(a.authorName)} | 点赞 ${a.likeCount || 0} | 阅读 ${a.viewCount}</span>
+          <span><span class="status-pill ${statusClass(a.status)}">${statusText(a.status)}</span> | 作者 ${escapeHtml(a.authorName)} | ${articleStats(a)} | 附件 ${(a.attachments || []).length}</span>
           <small>${escapeHtml(textPreview(a.summary || a.content, 150))}</small>
+          ${renderCompactAttachments(a.attachments)}
           <div class="admin-row-actions">
             <a class="blog-link-btn" href="/article.html?id=${a.id}">查看</a>
             <button type="button" data-article-id="${a.id}" data-article-status="PUBLISHED">通过上架</button>
@@ -741,6 +852,7 @@
           <small>输出：${escapeHtml(textPreview(log.result, 160))}</small>
         </div>`).join('') || '<p class="blog-muted">暂无 AI 使用记录。</p>';
         show('admin-status', '后台数据已刷新');
+        showAdminReviewNotice(articles, comments);
       } catch (error) {
         show('admin-status', error.message);
       }
