@@ -2,6 +2,7 @@ $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $MyInvocation.MyCommand.Path
 $java = 'C:\Program Files\Java\jdk1.8.0_201\bin\java.exe'
 $backendJar = Join-Path $root 'blog-system\backend\target\blog-system-backend-1.0.0.jar'
+$mvn = Join-Path $root 'blog-system\backend\mvn-local.cmd'
 $frontendDir = Join-Path $root 'demo-site'
 $logDir = Join-Path $root 'tmp\run-logs'
 $backendOut = Join-Path $logDir 'backend.out.log'
@@ -12,7 +13,15 @@ $frontendErr = Join-Path $logDir 'frontend.err.log'
 New-Item -ItemType Directory -Force -Path $logDir | Out-Null
 
 if (!(Test-Path $java)) { throw "JDK not found: $java" }
-if (!(Test-Path $backendJar)) { throw "Backend jar not found: $backendJar" }
+if (!(Test-Path $mvn)) { throw "Maven helper not found: $mvn" }
+
+function Ensure-BackendJar() {
+  if (Test-Path $backendJar) { return }
+  Write-Host 'Backend jar not found. Building backend automatically...'
+  & $mvn -q -DskipTests package
+  if ($LASTEXITCODE -ne 0) { throw 'Backend package failed. Check JDK/Maven and dependency cache.' }
+  if (!(Test-Path $backendJar)) { throw "Backend jar still not found after package: $backendJar" }
+}
 
 if (-not $env:MYSQL_USER) { $env:MYSQL_USER = 'root' }
 if (-not $env:MYSQL_PASSWORD) { $env:MYSQL_PASSWORD = 'root' }
@@ -77,6 +86,7 @@ function Test-BackendApi() {
   }
 }
 
+Ensure-BackendJar
 Start-Backend
 
 if (-not (Test-BackendApi)) {
