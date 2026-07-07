@@ -62,6 +62,7 @@ CREATE TABLE articles (
   title VARCHAR(200) NOT NULL COMMENT '标题',
   summary VARCHAR(500) DEFAULT NULL COMMENT '摘要',
   content MEDIUMTEXT NOT NULL COMMENT '正文',
+  attachments_json LONGTEXT DEFAULT NULL COMMENT '文章附件JSON，保存图片/PPT等上传文件',
   status VARCHAR(20) NOT NULL DEFAULT 'PENDING' COMMENT '状态：DRAFT/PENDING/PUBLISHED/REJECTED',
   view_count INT NOT NULL DEFAULT 0 COMMENT '阅读量',
   like_count INT NOT NULL DEFAULT 0 COMMENT '点赞数',
@@ -150,9 +151,9 @@ INSERT INTO tags(name) VALUES
 ('Java'),
 ('前端');
 
-INSERT INTO articles(author_id, category_id, title, summary, content, status, view_count, like_count) VALUES
-(1, 3, 'AI 辅助写作与评论审核设计', '通过本地规则模拟 AI 摘要、大纲、标签推荐、评论审核和博客问答。', '当前版本使用本地规则模拟，后续可接入 Dify、Coze 或大模型 API。所有 AI 调用都会记录到 ai_usage_logs 表中，便于管理员查看。', 'PUBLISHED', 8, 1),
-(2, 1, '待管理员审核的前端连接记录', '普通用户提交后默认进入待审核状态，管理员通过后才会上架首页。', '这是一篇用于演示审核流程的用户文章。管理员在后台点击“通过上架”后，文章才会显示在普通用户首页。', 'PENDING', 0, 0);
+INSERT INTO articles(author_id, category_id, title, summary, content, attachments_json, status, view_count, like_count) VALUES
+(1, 3, 'AI 辅助写作与评论审核设计', '通过本地规则模拟 AI 摘要、大纲、标签推荐、评论审核和博客问答。', '当前版本使用本地规则模拟，后续可接入 Dify、Coze 或大模型 API。所有 AI 调用都会记录到 ai_usage_logs 表中，便于管理员查看。', '[]', 'PUBLISHED', 8, 1),
+(2, 1, '待管理员审核的前端连接记录', '普通用户提交后默认进入待审核状态，管理员通过后才会上架首页。', '这是一篇用于演示审核流程的用户文章。管理员在后台点击“通过上架”后，文章才会显示在普通用户首页。', '[]', 'PENDING', 0, 0);
 
 INSERT INTO article_tags(article_id, tag_id) VALUES
 (1, 1), (1, 3),

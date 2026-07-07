@@ -4,11 +4,18 @@ import com.tangyuxian.blog.dto.AiRequest;
 import com.tangyuxian.blog.model.AiUsageLog;
 import com.tangyuxian.blog.model.Article;
 import com.tangyuxian.blog.repository.InMemoryBlogRepository;
+import org.springframework.core.env.Environment;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestTemplate;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -16,9 +23,12 @@ import java.util.Map;
 @Service
 public class AiService {
     private final InMemoryBlogRepository repository;
+    private final Environment environment;
+    private final RestTemplate restTemplate = new RestTemplate();
 
-    public AiService(InMemoryBlogRepository repository) {
+    public AiService(InMemoryBlogRepository repository, Environment environment) {
         this.repository = repository;
+        this.environment = environment;
     }
 
     public Map<String, Object> outline(AiRequest request) {
@@ -50,6 +60,14 @@ public class AiService {
 
     public Map<String, Object> recommendTags(AiRequest request) {
         String text = (safe(request.getTitle(), "") + " " + safe(request.getContent(), "")).toLowerCase();
+        List<String> remoteTags = recommendTagsByModel(request, text);
+        if (!remoteTags.isEmpty()) {
+            Map<String, Object> remoteMap = new LinkedHashMap<String, Object>();
+            remoteMap.put("tags", remoteTags);
+            remoteMap.put("mode", "remote-openai-compatible");
+            log("AI_TAGS", text, remoteMap.toString());
+            return remoteMap;
+        }
         List<String> tags = new ArrayList<String>();
         if (text.contains("spring") || text.contains("java")) tags.add("Spring Boot");
         if (text.contains("hexo") || text.contains("\u535a\u5ba2")) tags.add("Hexo");
@@ -91,6 +109,77 @@ public class AiService {
         map.put("mode", "local-rule-simulation");
         log("AI_QA", question, map.toString());
         return map;
+    }
+
+    private List<String> recommendTagsByModel(AiRequest request, String text) {
+        String apiKey = env("AI_CHAT_API_KEY", env("DEEPSEEK_API_KEY", ""));
+        if (apiKey.trim().isEmpty()) return Collections.emptyList();
+        String endpoint = env("AI_CHAT_ENDPOINT", "").trim();
+        if (endpoint.isEmpty()) {
+            String baseUrl = trimSlash(env("AI_CHAT_BASE_URL", env("DEEPSEEK_BASE_URL", "https://api.deepseek.com")));
+            endpoint = baseUrl + "/chat/completions";
+        }
+        String model = env("AI_CHAT_MODEL", env("DEEPSEEK_MODEL", "deepseek-chat"));
+        try {
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            headers.setBearerAuth(apiKey);
+
+            Map<String, Object> system = new LinkedHashMap<String, Object>();
+            system.put("role", "system");
+            system.put("content", "你是博客系统的标签推荐助手。只输出 3 到 6 个中文或技术英文标签，用中文逗号分隔，不要解释。");
+            Map<String, Object> user = new LinkedHashMap<String, Object>();
+            user.put("role", "user");
+            user.put("content", "标题：" + safe(request.getTitle(), "") + "\n正文：" + safe(request.getContent(), ""));
+
+            Map<String, Object> body = new LinkedHashMap<String, Object>();
+            body.put("model", model);
+            body.put("messages", Arrays.asList(system, user));
+            body.put("temperature", 0.2);
+            body.put("max_tokens", 120);
+
+            ResponseEntity<Map> response = restTemplate.postForEntity(endpoint, new HttpEntity<Map<String, Object>>(body, headers), Map.class);
+            if (response.getBody() == null) return Collections.emptyList();
+            Object choicesObj = response.getBody().get("choices");
+            if (!(choicesObj instanceof List) || ((List) choicesObj).isEmpty()) return Collections.emptyList();
+            Object firstObj = ((List) choicesObj).get(0);
+            if (!(firstObj instanceof Map)) return Collections.emptyList();
+            Object messageObj = ((Map) firstObj).get("message");
+            String content = "";
+            if (messageObj instanceof Map && ((Map) messageObj).get("content") != null) {
+                content = String.valueOf(((Map) messageObj).get("content"));
+            } else if (((Map) firstObj).get("text") != null) {
+                content = String.valueOf(((Map) firstObj).get("text"));
+            }
+            return parseTags(content);
+        } catch (Exception ex) {
+            log("AI_TAGS_REMOTE_ERROR", text, ex.getMessage());
+            return Collections.emptyList();
+        }
+    }
+
+    private List<String> parseTags(String content) {
+        List<String> result = new ArrayList<String>();
+        String clean = safe(content, "").replace("[", "").replace("]", "").replace("#", "");
+        String[] parts = clean.split("[，,、;；\n\r\t ]+");
+        for (String part : parts) {
+            String tag = part.replace("\"", "").replace("'", "").trim();
+            if (tag.isEmpty() || result.contains(tag)) continue;
+            result.add(tag.length() > 30 ? tag.substring(0, 30) : tag);
+            if (result.size() >= 6) break;
+        }
+        return result;
+    }
+
+    private String env(String key, String fallback) {
+        String value = environment.getProperty(key);
+        return value == null || value.trim().isEmpty() ? fallback : value.trim();
+    }
+
+    private String trimSlash(String value) {
+        String result = safe(value, "");
+        while (result.endsWith("/")) result = result.substring(0, result.length() - 1);
+        return result;
     }
 
     private String safe(String value, String fallback) {

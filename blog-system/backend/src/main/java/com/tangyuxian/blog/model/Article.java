@@ -18,6 +18,7 @@ public class Article {
     private int likeCount;
     private List<Long> tagIds = new ArrayList<Long>();
     private List<String> tagNames = new ArrayList<String>();
+    private List<ArticleAttachment> attachments = new ArrayList<ArticleAttachment>();
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
@@ -47,6 +48,8 @@ public class Article {
     public void setTagIds(List<Long> tagIds) { this.tagIds = tagIds; }
     public List<String> getTagNames() { return tagNames; }
     public void setTagNames(List<String> tagNames) { this.tagNames = tagNames; }
+    public List<ArticleAttachment> getAttachments() { return attachments; }
+    public void setAttachments(List<ArticleAttachment> attachments) { this.attachments = attachments; }
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
     public LocalDateTime getUpdatedAt() { return updatedAt; }

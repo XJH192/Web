@@ -1,55 +1,58 @@
-# AI 辅助开发与 AI 功能说明
+# AI 辅助功能与大模型接入说明
 
-## 使用的 AI 工具
+## 当前功能
 
-- Codex：辅助需求拆解、代码生成、接口设计、数据库设计和文档生成。
+后端实现位置：`blog-system/backend/src/main/java/com/tangyuxian/blog/service/AiService.java`
 
-## AI 参与的开发环节
+已接入页面功能：
 
-- 从课程验收 PDF 中提取选题 2 的功能要求。
-- 设计 Spring Boot 分层结构。
-- 生成 REST API 草案。
-- 设计不少于 4 张业务表的数据库结构。
-- 生成前端 Hexo 动态页面和交互脚本。
-- 生成 README、接口文档和需求分析文档初稿。
+1. AI 生成大纲：根据文章标题生成写作结构。
+2. AI 生成摘要：根据正文生成短摘要。
+3. AI 推荐标签：根据当前文章标题和正文推荐 3-6 个标签，并自动填入编辑器标签框。
+4. AI 评论审核：评论提交时做本地风险词初审，管理员仍可最终审核。
+5. AI 博客问答：根据当前博客内容做简单问答演示。
 
-## 系统内 AI 功能模块
+## 标签推荐逻辑
 
-当前实现位置：后端 `service/AiService.java`
+系统现在是“双模式”：
 
-已实现功能：
+- 未配置大模型 API：使用本地规则推荐标签，例如 Spring Boot、Hexo、AI、JavaScript、随笔。
+- 配置大模型 API：优先调用 DeepSeek 或其他 OpenAI 兼容接口，失败时自动回退到本地规则。
 
-1. AI 辅助写作：输入标题，输出文章大纲。
-2. AI 摘要：输入正文，输出摘要。
-3. AI 标签推荐：根据标题和正文关键词推荐标签。
-4. AI 评论审核：识别广告、不文明或外链评论。
-5. AI 问答助手：基于当前博客文章标题模拟回答问题。
+## 接入 DeepSeek API
 
-## 模拟逻辑说明
+DeepSeek 使用 OpenAI 兼容的 Chat Completions 格式。启动后端前设置环境变量即可：
 
-由于当前阶段暂不接入外部账号或真实大模型，AI 模块使用本地规则模拟：
+```powershell
+$env:DEEPSEEK_API_KEY="你的 DeepSeek API Key"
+$env:DEEPSEEK_MODEL="deepseek-chat"
+npm run web
+```
 
-- 关键词匹配：Spring、Hexo、AI、JavaScript 等。
-- 文本截断：提取正文前 80 字作为摘要。
-- 风险词识别：广告、加微信、spam、http:// 等。
-- 问答生成：汇总已有文章标题作为回答依据。
+如果你想显式指定接口地址：
 
-## 未来扩展方案
+```powershell
+$env:AI_CHAT_ENDPOINT="https://api.deepseek.com/chat/completions"
+$env:AI_CHAT_API_KEY="你的 DeepSeek API Key"
+$env:AI_CHAT_MODEL="deepseek-chat"
+npm run web
+```
 
-可以将 `AiService` 改造成接口，并增加实现类：
+推荐使用 `AI_CHAT_*`，它更通用；`DEEPSEEK_*` 是为了方便 DeepSeek 单独配置。
 
-- `LocalRuleAiService`：本地规则模拟。
-- `DifyAiService`：调用 Dify 工作流。
-- `OpenAiCompatibleService`：调用 OpenAI 兼容 API。
+## 接入其他大模型
 
-前端和 Controller 不需要大改，只替换 Service 实现即可。
+只要对方兼容 OpenAI 的 `/chat/completions` 格式，就可以这样配置：
 
-## 人工修改与验证
+```powershell
+$env:AI_CHAT_ENDPOINT="https://你的服务商域名/v1/chat/completions"
+$env:AI_CHAT_API_KEY="你的 API Key"
+$env:AI_CHAT_MODEL="模型名称"
+npm run web
+```
 
-AI 生成内容经过人工调整：
+常见可替换服务：DeepSeek、通义千问兼容接口、智谱兼容接口、硅基流动、OpenAI 兼容代理、Ollama 兼容代理等。不同平台的 endpoint 和 model 名称不同，以平台控制台为准。
 
-- 按课程 PDF 选择博客系统功能范围。
-- 保留不连接数据库的当前阶段要求。
-- 修正为 Java 8 和 Spring Boot 2.7 兼容。
-- 设计前端页面与当前 Hexo 主题兼容。
-- 统一接口返回格式和异常处理。
+## 数据库记录
+
+AI 调用会写入 `ai_usage_logs` 表，管理员后台可以查看功能类型、输入内容和输出结果。标签推荐生成的新标签会自动写入 `tags` 表，并通过 `article_tags` 与文章关联。

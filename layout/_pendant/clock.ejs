@@ -57,23 +57,23 @@
 <style>
   .xjh-clock-wrap { justify-content: flex-end; }
   .xjh-clock-card {
-    width: 304px;
+    width: 260px;
     display: flex;
     align-items: center;
-    gap: 16px;
+    gap: 10px;
     border: 1px solid rgba(230, 114, 73, .22);
     border-radius: 12px;
-    padding: 14px;
+    padding: 12px;
     background: rgba(255, 250, 246, .94);
     color: #30231d;
     box-shadow: 0 2px 8px rgba(87, 48, 31, .14);
   }
   .xjh-clock {
     position: relative;
-    flex: 0 0 96px;
-    width: 96px;
-    height: 96px;
-    border: 5px solid #ed7c54;
+    flex: 0 0 78px;
+    width: 78px;
+    height: 78px;
+    border: 4px solid #ed7c54;
     border-radius: 50%;
     background: radial-gradient(circle at 50% 50%, #fff 0 58%, #fff7f1 59% 100%);
     box-shadow: inset 0 0 0 1px rgba(230, 114, 73, .16);
@@ -86,14 +86,14 @@
     height: 5px;
     border-radius: 999px;
     background: #d9a08a;
-    transform: translate(-50%, -50%) rotate(calc(var(--tick) * 6deg)) translateY(-39px);
+    transform: translate(-50%, -50%) rotate(calc(var(--tick) * 6deg)) translateY(-31px);
     transform-origin: 50% 50%;
   }
   .xjh-clock-tick.major {
     width: 2px;
     height: 9px;
     background: #e67249;
-    transform: translate(-50%, -50%) rotate(calc(var(--tick) * 6deg)) translateY(-37px);
+    transform: translate(-50%, -50%) rotate(calc(var(--tick) * 6deg)) translateY(-30px);
   }
   .xjh-clock-hand {
     position: absolute;
@@ -103,9 +103,9 @@
     transform-origin: 50% 100%;
     transition: transform .18s ease-out;
   }
-  .xjh-clock-hand.hour { width: 5px; height: 27px; background: #2f241f; }
-  .xjh-clock-hand.minute { width: 3px; height: 36px; background: #2f241f; }
-  .xjh-clock-hand.second { width: 2px; height: 40px; background: #e67249; }
+  .xjh-clock-hand.hour { width: 5px; height: 21px; background: #2f241f; }
+  .xjh-clock-hand.minute { width: 3px; height: 29px; background: #2f241f; }
+  .xjh-clock-hand.second { width: 2px; height: 32px; background: #e67249; }
   .xjh-clock-center {
     position: absolute;
     left: 50%;
@@ -119,7 +119,7 @@
   }
   .xjh-clock-copy { display: grid; gap: 4px; min-width: 0; }
   .xjh-clock-copy strong { color: #2f241f; font-size: 15px; }
-  .xjh-clock-copy span { color: #e67249; font-size: 24px; font-weight: 800; line-height: 1; letter-spacing: .02em; }
+  .xjh-clock-copy span { color: #e67249; font-size: 21px; font-weight: 800; line-height: 1; letter-spacing: .02em; }
   .xjh-clock-copy small { color: #70594d; font-size: 12px; line-height: 1.5; }
   @media (prefers-reduced-motion: reduce) {
     .xjh-clock-hand { transition: none; }

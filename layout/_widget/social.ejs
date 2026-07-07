@@ -32,24 +32,30 @@
   (function () {
     const modal = document.getElementById('xjh-email-modal');
     if (!modal) return;
+    if (modal.parentNode !== document.body) document.body.appendChild(modal);
     const value = document.getElementById('xjh-email-value');
     const copy = document.getElementById('xjh-email-copy');
     const open = document.getElementById('xjh-email-open');
     const close = modal.querySelector('.xjh-email-close');
+    let lastFocus = null;
 
     function show(email) {
+      lastFocus = document.activeElement;
       const finalEmail = email || '706972112@qq.com';
       value.textContent = finalEmail;
       open.href = 'mailto:' + finalEmail;
       modal.classList.add('is-visible');
       modal.setAttribute('aria-hidden', 'false');
+      document.body.classList.add('xjh-email-open');
       document.body.style.overflow = 'hidden';
       close.focus();
     }
     function hide() {
       modal.classList.remove('is-visible');
       modal.setAttribute('aria-hidden', 'true');
+      document.body.classList.remove('xjh-email-open');
       document.body.style.overflow = '';
+      if (lastFocus && lastFocus.focus) lastFocus.focus();
     }
 
     document.addEventListener('click', function (event) {
@@ -57,6 +63,7 @@
       if (link) {
         event.preventDefault();
         show(link.getAttribute('data-email'));
+        return;
       }
       if (event.target === modal || event.target.closest('.xjh-email-close')) hide();
     });
@@ -77,11 +84,13 @@
   .xjh-email-modal {
     position: fixed;
     inset: 0;
-    z-index: 10000;
+    z-index: 1200;
     display: grid;
     place-items: center;
     padding: 20px;
-    background: rgba(47, 36, 31, .34);
+    background: rgba(47, 36, 31, .38);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
     opacity: 0;
     visibility: hidden;
     transition: opacity .18s ease, visibility .18s ease;
@@ -89,31 +98,32 @@
   .xjh-email-modal.is-visible { opacity: 1; visibility: visible; }
   .xjh-email-dialog {
     position: relative;
-    width: min(360px, 100%);
+    width: min(380px, calc(100vw - 32px));
     border: 1px solid rgba(230, 114, 73, .24);
     border-radius: 14px;
-    padding: 22px;
+    padding: 24px;
     background: rgba(255, 250, 246, .98);
     color: #2f241f;
-    box-shadow: 0 2px 8px rgba(87, 48, 31, .18);
-    transform: translateY(8px);
+    box-shadow: 0 8px 24px rgba(47, 36, 31, .18);
+    transform: translateY(10px) scale(.98);
     transition: transform .18s ease;
   }
-  .xjh-email-modal.is-visible .xjh-email-dialog { transform: translateY(0); }
+  .xjh-email-modal.is-visible .xjh-email-dialog { transform: translateY(0) scale(1); }
   .xjh-email-close {
     position: absolute;
     top: 12px;
     right: 12px;
-    width: 30px;
-    height: 30px;
+    width: 32px;
+    height: 32px;
     border: 0;
     border-radius: 9px;
     background: rgba(230, 114, 73, .12);
     color: #c95531;
     cursor: pointer;
-    font-size: 20px;
+    font-size: 21px;
     line-height: 1;
   }
+  .xjh-email-close:hover { background: rgba(230, 114, 73, .18); }
   .xjh-email-label {
     display: inline-flex;
     margin-bottom: 8px;

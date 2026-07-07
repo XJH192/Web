@@ -1,6 +1,6 @@
 (function () {
   const API_BASE = window.BLOG_API_BASE || 'http://127.0.0.1:8080/api';
-  const state = { categories: [], tags: [], currentUser: null };
+  const state = { categories: [], tags: [], currentUser: null, editorAttachments: [] };
 
   function $(id) { return document.getElementById(id); }
   function token() { return localStorage.getItem('blogToken') || ''; }
@@ -170,13 +170,125 @@
     const first = placeholder == null ? '<option value="">全部标签</option>' : `<option value="">${escapeHtml(placeholder)}</option>`;
     return first + state.tags.map(t => `<option value="${t.id}" ${Number(selected) === t.id ? 'selected' : ''}>${escapeHtml(t.name)}</option>`).join('');
   }
-  function tagChecks(selectedIds) {
-    const selected = selectedIds || [];
-    return state.tags.map(t => `<label><input type="checkbox" value="${t.id}" ${selected.indexOf(t.id) >= 0 ? 'checked' : ''}> ${escapeHtml(t.name)}</label>`).join('') || '<span class="blog-muted">暂无标签，可让管理员先创建</span>';
+  function uniqueNames(names) {
+    const seen = new Set();
+    return (names || []).map(name => String(name || '').trim()).filter(function (name) {
+      if (!name || seen.has(name.toLowerCase())) return false;
+      seen.add(name.toLowerCase());
+      return true;
+    });
   }
-  function selectedTagIds() {
-    return Array.from(document.querySelectorAll('#article-tags input:checked')).map(input => Number(input.value));
+  function splitTagNames(value) {
+    return uniqueNames(String(value || '').split(/[，,、;；\s]+/));
   }
+  function setTagInput(names) {
+    const input = $('article-tag-input');
+    if (input) input.value = uniqueNames(names).join('，');
+    renderTagPreview();
+  }
+  function selectedTagNames() {
+    const input = $('article-tag-input');
+    return splitTagNames(input ? input.value : '');
+  }
+  function selectedTagIds() { return []; }
+  function renderTagPreview() {
+    const box = $('article-tags');
+    if (!box) return;
+    const names = selectedTagNames();
+    box.innerHTML = names.length
+      ? names.map(name => `<span class="tag-pill">${escapeHtml(name)}</span>`).join('')
+      : '<span class="blog-muted">暂未填写标签，可手动输入或点击 AI 推荐。</span>';
+  }
+  function normalizeAttachments(value) {
+    return Array.isArray(value) ? value.filter(item => item && item.name && item.dataUrl) : [];
+  }
+  function formatBytes(value) {
+    const size = Number(value || 0);
+    if (size >= 1024 * 1024) return (size / 1024 / 1024).toFixed(1) + 'MB';
+    if (size >= 1024) return Math.round(size / 1024) + 'KB';
+    return size + 'B';
+  }
+  function safeDataUrl(value) {
+    const text = String(value || '');
+    return text.indexOf('data:') === 0 ? text : '#';
+  }
+  function fileKind(attachment) {
+    const type = String(attachment.type || '').toLowerCase();
+    const name = String(attachment.name || '').toLowerCase();
+    if (type.indexOf('image/') === 0) return '图片';
+    if (name.endsWith('.ppt') || name.endsWith('.pptx')) return 'PPT';
+    if (name.endsWith('.pdf')) return 'PDF';
+    if (name.endsWith('.doc') || name.endsWith('.docx')) return '文档';
+    return '附件';
+  }
+  function renderAttachments() {
+    const box = $('article-attachments');
+    if (!box) return;
+    const attachments = normalizeAttachments(state.editorAttachments);
+    box.innerHTML = attachments.length ? attachments.map((item, index) => `
+      <div class="attachment-item">
+        <span><strong>${escapeHtml(item.name)}</strong><small>${escapeHtml(fileKind(item))} · ${formatBytes(item.size)}</small></span>
+        <button type="button" class="danger attachment-remove" data-attachment-remove="${index}">移除</button>
+      </div>
+    `).join('') : '<p class="blog-muted">还没有上传附件，支持图片、PPT、PDF、Word 等文件。</p>';
+  }
+  function readFilesAsAttachments(fileList) {
+    const files = Array.from(fileList || []);
+    const maxSize = 12 * 1024 * 1024;
+    return Promise.all(files.map(function (file) {
+      if (file.size > maxSize) throw new Error(file.name + ' 超过 12MB，请压缩后再上传。');
+      return new Promise(function (resolve, reject) {
+        const reader = new FileReader();
+        reader.onload = function () {
+          resolve({ name: file.name, type: file.type || 'application/octet-stream', size: file.size, dataUrl: reader.result });
+        };
+        reader.onerror = function () { reject(new Error(file.name + ' 读取失败')); };
+        reader.readAsDataURL(file);
+      });
+    }));
+  }
+  function renderArticleAttachments(attachments) {
+    const list = normalizeAttachments(attachments);
+    if (!list.length) return '';
+    return `<section class="article-attachments" id="article-attachments-section"><h2>文章附件</h2><div class="article-attachment-grid">${list.map(function (item) {
+      const url = escapeHtml(safeDataUrl(item.dataUrl));
+      const title = escapeHtml(item.name);
+      if (String(item.type || '').indexOf('image/') === 0) {
+        return `<a class="attachment-link article-attachment-preview" href="${url}" download="${title}"><span><strong>${title}</strong><small>图片 · ${formatBytes(item.size)}</small></span><img src="${url}" alt="${title}"></a>`;
+      }
+      return `<a class="attachment-link" href="${url}" download="${title}"><span><strong>${title}</strong><small>${escapeHtml(fileKind(item))} · ${formatBytes(item.size)}</small></span><span>下载</span></a>`;
+    }).join('')}</div></section>`;
+  }
+  function renderArticleContent(content, attachments) {
+    const lines = String(content || '').split(/\r?\n/);
+    const toc = [];
+    const parts = [];
+    lines.forEach(function (line) {
+      const text = line.trim();
+      if (!text) return;
+      const heading = text.match(/^(#{1,4})\s+(.+)$/);
+      const numbered = text.match(/^([0-9]+[.、]\s*)(.+)$/);
+      if (heading || numbered) {
+        const title = heading ? heading[2].trim() : numbered[2].trim();
+        const level = heading ? Math.min(4, heading[1].length + 1) : 2;
+        const id = 'article-section-' + toc.length;
+        toc.push({ id: id, title: title });
+        parts.push(`<h${level} id="${id}">${escapeHtml(title)}</h${level}>`);
+      } else {
+        parts.push(`<p>${escapeHtml(line)}</p>`);
+      }
+    });
+    if (!parts.length) parts.push('<p class="blog-muted">暂无正文内容。</p>');
+    if (!toc.length) {
+      toc.push({ id: 'article-body-start', title: '正文内容' });
+      parts.unshift('<h2 id="article-body-start">正文内容</h2>');
+    }
+    const attachmentHtml = renderArticleAttachments(attachments);
+    if (attachmentHtml) toc.push({ id: 'article-attachments-section', title: '文章附件' });
+    const tocHtml = `<nav class="article-inline-toc" aria-label="文章目录"><strong>文章目录</strong>${toc.map(item => `<a href="#${item.id}" data-article-toc>${escapeHtml(item.title)}</a>`).join('')}</nav>`;
+    return `<div class="article-detail-layout"><div class="article-content-body">${parts.join('')}${attachmentHtml}</div>${tocHtml}</div>`;
+  }
+
   function renderAiResult(targetId, data) {
     const target = $(targetId);
     if (!target) return;
@@ -189,7 +301,11 @@
       return;
     }
     if (data.tags) {
-      target.innerHTML = `<strong>推荐标签</strong><p>${data.tags.map(tag => `<span class="tag-pill">${escapeHtml(tag)}</span>`).join('')}</p>`;
+      const tags = uniqueNames(data.tags);
+      if ($('article-tag-input')) {
+        setTagInput(uniqueNames(selectedTagNames().concat(tags)));
+      }
+      target.innerHTML = `<strong>推荐标签</strong><p>${tags.map(tag => `<span class="tag-pill">${escapeHtml(tag)}</span>`).join('')}</p><p class="blog-muted">已同步到文章标签输入框，可继续手动修改。</p>`;
       return;
     }
     if (data.answer) {
@@ -267,7 +383,9 @@
     $('blog-category-filter').innerHTML = categoryOptions(null, '全部分类');
     $('blog-tag-filter').innerHTML = tagOptions(null, '全部标签');
     $('article-category').innerHTML = categoryOptions(null, '请选择分类');
-    $('article-tags').innerHTML = tagChecks([]);
+    setTagInput([]);
+    state.editorAttachments = [];
+    renderAttachments();
 
     async function loadHomeComments(articleId) {
       const list = document.querySelector(`[data-comment-list="${articleId}"]`);
@@ -393,6 +511,25 @@
     });
 
     $('blog-search-btn').addEventListener('click', loadMyArticles);
+    if ($('article-tag-input')) $('article-tag-input').addEventListener('input', renderTagPreview);
+    if ($('article-files')) $('article-files').addEventListener('change', async function (event) {
+      try {
+        show('blog-status', '正在读取附件...');
+        const files = await readFilesAsAttachments(event.target.files);
+        state.editorAttachments = normalizeAttachments(state.editorAttachments).concat(files).slice(0, 8);
+        renderAttachments();
+        event.target.value = '';
+        show('blog-status', '附件已加入文章，保存后会同步到数据库');
+      } catch (error) {
+        show('blog-status', error.message);
+      }
+    });
+    if ($('article-attachments')) $('article-attachments').addEventListener('click', function (event) {
+      const index = event.target.getAttribute('data-attachment-remove');
+      if (index == null) return;
+      state.editorAttachments.splice(Number(index), 1);
+      renderAttachments();
+    });
     $('logout-btn').addEventListener('click', function () {
       clearSession();
       location.href = '/login.html';
@@ -400,7 +537,9 @@
     $('article-reset-btn').addEventListener('click', function () {
       $('article-form').reset();
       $('article-id').value = '';
-      $('article-tags').innerHTML = tagChecks([]);
+      setTagInput([]);
+      state.editorAttachments = [];
+      renderAttachments();
       show('blog-status', '已清空编辑表单');
     });
     $('article-list').addEventListener('click', async function (event) {
@@ -415,7 +554,9 @@
           $('article-content').value = article.content;
           $('article-category').value = article.categoryId;
           $('article-status').value = article.status === 'DRAFT' ? 'DRAFT' : 'PENDING';
-          $('article-tags').innerHTML = tagChecks(article.tagIds || []);
+          setTagInput(article.tagNames || []);
+          state.editorAttachments = normalizeAttachments(article.attachments);
+          renderAttachments();
           show('blog-status', `正在编辑文章：${article.title}`);
           $('article-title').focus();
         }
@@ -437,6 +578,8 @@
         content: $('article-content').value,
         categoryId: Number($('article-category').value),
         tagIds: selectedTagIds(),
+        tagNames: selectedTagNames(),
+        attachments: normalizeAttachments(state.editorAttachments),
         status: $('article-status').value
       };
       try {
@@ -444,7 +587,9 @@
         await api('/articles' + (id ? '/' + id : ''), { method: id ? 'PUT' : 'POST', body: JSON.stringify(payload) });
         event.target.reset();
         $('article-id').value = '';
-        $('article-tags').innerHTML = tagChecks([]);
+        setTagInput([]);
+        state.editorAttachments = [];
+        renderAttachments();
         await loadMyArticles();
         show('blog-status', payload.status === 'DRAFT' ? '草稿已保存' : '文章已提交审核，管理员通过后会上架首页');
       } catch (error) {
@@ -481,7 +626,7 @@
         <h1>${escapeHtml(article.title)}</h1>
         <p class="article-meta">作者：${escapeHtml(article.authorName)} | 分类：${escapeHtml(article.categoryName)} | ${formatDate(article.createdAt)} | 阅读 ${article.viewCount} | 点赞 ${article.likeCount || 0}</p>
         <p><span class="status-pill ${statusClass(article.status)}">${statusText(article.status)}</span> ${(article.tagNames || []).map(t => `<span class="tag-pill">${escapeHtml(t)}</span>`).join('')}</p>
-        <p>${escapeHtml(article.content)}</p>
+        ${renderArticleContent(article.content, article.attachments || [])}
       `;
     }
     async function loadComments() {
@@ -494,6 +639,15 @@
         </div>
       `).join('') || '<p class="blog-muted">暂无已通过评论。</p>';
     }
+    $('article-detail').addEventListener('click', function (event) {
+      const link = event.target.closest('[data-article-toc]');
+      if (!link) return;
+      const target = document.querySelector(link.getAttribute('href'));
+      if (target) {
+        event.preventDefault();
+        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    });
     $('comment-list').addEventListener('click', function (event) {
       const replyId = event.target.getAttribute('data-reply');
       if (!replyId) return;

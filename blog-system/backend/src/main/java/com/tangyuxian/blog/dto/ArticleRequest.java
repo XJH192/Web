@@ -1,5 +1,7 @@
 package com.tangyuxian.blog.dto;
 
+import com.tangyuxian.blog.model.ArticleAttachment;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -9,6 +11,8 @@ public class ArticleRequest {
     private String content;
     private Long categoryId;
     private List<Long> tagIds = new ArrayList<Long>();
+    private List<String> tagNames = new ArrayList<String>();
+    private List<ArticleAttachment> attachments = new ArrayList<ArticleAttachment>();
     private String status;
 
     public String getTitle() { return title; }
@@ -21,6 +25,10 @@ public class ArticleRequest {
     public void setCategoryId(Long categoryId) { this.categoryId = categoryId; }
     public List<Long> getTagIds() { return tagIds; }
     public void setTagIds(List<Long> tagIds) { this.tagIds = tagIds; }
+    public List<String> getTagNames() { return tagNames; }
+    public void setTagNames(List<String> tagNames) { this.tagNames = tagNames; }
+    public List<ArticleAttachment> getAttachments() { return attachments; }
+    public void setAttachments(List<ArticleAttachment> attachments) { this.attachments = attachments; }
     public String getStatus() { return status; }
     public void setStatus(String status) { this.status = status; }
 }

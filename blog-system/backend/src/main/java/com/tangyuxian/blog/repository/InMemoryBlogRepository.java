@@ -1,7 +1,10 @@
 package com.tangyuxian.blog.repository;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tangyuxian.blog.model.AiUsageLog;
 import com.tangyuxian.blog.model.Article;
+import com.tangyuxian.blog.model.ArticleAttachment;
 import com.tangyuxian.blog.model.ArticleStatus;
 import com.tangyuxian.blog.model.Category;
 import com.tangyuxian.blog.model.Comment;
@@ -22,11 +25,14 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 @Repository
 public class InMemoryBlogRepository {
     private final JdbcTemplate jdbc;
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     public InMemoryBlogRepository(JdbcTemplate jdbc) {
         this.jdbc = jdbc;
@@ -36,6 +42,7 @@ public class InMemoryBlogRepository {
     private void migrateIfNeeded() {
         tryExecute("ALTER TABLE users ADD COLUMN banned TINYINT(1) NOT NULL DEFAULT 0 COMMENT '是否封禁' AFTER role");
         tryExecute("ALTER TABLE articles ADD COLUMN like_count INT NOT NULL DEFAULT 0 COMMENT '点赞数' AFTER view_count");
+        tryExecute("ALTER TABLE articles ADD COLUMN attachments_json LONGTEXT NULL COMMENT '文章附件JSON，保存图片/PPT等上传文件' AFTER content");
         tryExecute("CREATE TABLE IF NOT EXISTS article_likes (article_id BIGINT NOT NULL COMMENT '文章ID', user_id BIGINT NOT NULL COMMENT '点赞用户ID', created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '点赞时间', PRIMARY KEY(article_id, user_id), KEY idx_article_likes_user(user_id), CONSTRAINT fk_article_likes_article FOREIGN KEY(article_id) REFERENCES articles(id) ON DELETE CASCADE, CONSTRAINT fk_article_likes_user FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='文章点赞表'");
     }
 
@@ -110,6 +117,10 @@ public class InMemoryBlogRepository {
         return queryOne("SELECT * FROM tags WHERE id=?", tagMapper(), id);
     }
 
+    public Tag findTagByName(String name) {
+        return queryOne("SELECT * FROM tags WHERE name=?", tagMapper(), name);
+    }
+
     public List<Tag> listTags() {
         return jdbc.query("SELECT * FROM tags ORDER BY id DESC", tagMapper());
     }
@@ -122,15 +133,15 @@ public class InMemoryBlogRepository {
         String status = article.getStatus() == null ? ArticleStatus.PENDING.name() : article.getStatus().name();
         if (article.getId() == null) {
             Long id = insertAndReturnId(
-                    "INSERT INTO articles(author_id, category_id, title, summary, content, status, view_count, like_count) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                    "INSERT INTO articles(author_id, category_id, title, summary, content, attachments_json, status, view_count, like_count) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
                     article.getAuthorId(), article.getCategoryId(), article.getTitle(), article.getSummary(),
-                    article.getContent(), status, article.getViewCount(), article.getLikeCount()
+                    article.getContent(), attachmentsJson(article.getAttachments()), status, article.getViewCount(), article.getLikeCount()
             );
             article.setId(id);
         } else {
-            jdbc.update("UPDATE articles SET author_id=?, category_id=?, title=?, summary=?, content=?, status=?, view_count=?, like_count=? WHERE id=?",
+            jdbc.update("UPDATE articles SET author_id=?, category_id=?, title=?, summary=?, content=?, attachments_json=?, status=?, view_count=?, like_count=? WHERE id=?",
                     article.getAuthorId(), article.getCategoryId(), article.getTitle(), article.getSummary(),
-                    article.getContent(), status, article.getViewCount(), article.getLikeCount(), article.getId());
+                    article.getContent(), attachmentsJson(article.getAttachments()), status, article.getViewCount(), article.getLikeCount(), article.getId());
         }
         replaceArticleTags(article.getId(), article.getTagIds());
         return findArticleById(article.getId());
@@ -290,6 +301,7 @@ public class InMemoryBlogRepository {
                 article.setTitle(rs.getString("title"));
                 article.setSummary(rs.getString("summary"));
                 article.setContent(rs.getString("content"));
+                article.setAttachments(parseAttachments(stringColumn(rs, "attachments_json")));
                 article.setStatus(ArticleStatus.valueOf(rs.getString("status")));
                 article.setViewCount(rs.getInt("view_count"));
                 article.setLikeCount(intColumn(rs, "like_count"));
@@ -356,6 +368,23 @@ public class InMemoryBlogRepository {
         }, articleId);
     }
 
+    private String attachmentsJson(List<ArticleAttachment> attachments) {
+        try {
+            return objectMapper.writeValueAsString(attachments == null ? Collections.emptyList() : attachments);
+        } catch (Exception ex) {
+            return "[]";
+        }
+    }
+
+    private List<ArticleAttachment> parseAttachments(String json) {
+        if (json == null || json.trim().isEmpty()) return new ArrayList<ArticleAttachment>();
+        try {
+            return objectMapper.readValue(json, new TypeReference<List<ArticleAttachment>>() {});
+        } catch (Exception ex) {
+            return new ArrayList<ArticleAttachment>();
+        }
+    }
+
     private Long insertAndReturnId(final String sql, final Object... values) {
         KeyHolder keyHolder = new GeneratedKeyHolder();
         jdbc.update(connection -> {
@@ -390,6 +419,10 @@ public class InMemoryBlogRepository {
 
     private boolean booleanColumn(ResultSet rs, String column) {
         try { return rs.getBoolean(column); } catch (SQLException ex) { return false; }
+    }
+
+    private String stringColumn(ResultSet rs, String column) {
+        try { return rs.getString(column); } catch (SQLException ex) { return null; }
     }
 
     private int intColumn(ResultSet rs, String column) {

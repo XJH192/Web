@@ -3,8 +3,10 @@ package com.tangyuxian.blog.service;
 import com.tangyuxian.blog.common.BusinessException;
 import com.tangyuxian.blog.dto.ArticleRequest;
 import com.tangyuxian.blog.model.Article;
+import com.tangyuxian.blog.model.ArticleAttachment;
 import com.tangyuxian.blog.model.ArticleStatus;
 import com.tangyuxian.blog.model.Role;
+import com.tangyuxian.blog.model.Tag;
 import com.tangyuxian.blog.model.User;
 import com.tangyuxian.blog.repository.InMemoryBlogRepository;
 import org.springframework.stereotype.Service;
@@ -117,9 +119,20 @@ public class ArticleService {
                 throw new BusinessException("标签不存在：" + tagId);
             }
         }
+        if (request.getTagNames() != null) {
+            for (String rawName : request.getTagNames()) {
+                String name = rawName == null ? "" : rawName.trim();
+                if (name.isEmpty()) continue;
+                if (name.length() > 30) throw new BusinessException("标签过长：" + name);
+                Tag tag = repository.findTagByName(name);
+                if (tag == null) tag = repository.saveTag(new Tag(null, name, null));
+                if (!tagIds.contains(tag.getId())) tagIds.add(tag.getId());
+            }
+        }
         article.setTitle(request.getTitle().trim());
         article.setSummary(request.getSummary() == null ? "" : request.getSummary().trim());
         article.setContent(request.getContent().trim());
+        article.setAttachments(sanitizeAttachments(request.getAttachments()));
         article.setCategoryId(request.getCategoryId());
         article.setTagIds(tagIds);
         if (user.getRole() == Role.ADMIN) {
@@ -129,6 +142,23 @@ public class ArticleService {
         } else {
             article.setStatus(ArticleStatus.PENDING);
         }
+    }
+
+    private List<ArticleAttachment> sanitizeAttachments(List<ArticleAttachment> attachments) {
+        List<ArticleAttachment> result = new ArrayList<ArticleAttachment>();
+        if (attachments == null) return result;
+        int count = 0;
+        for (ArticleAttachment item : attachments) {
+            if (item == null || item.getName() == null || item.getDataUrl() == null) continue;
+            String name = item.getName().trim();
+            String dataUrl = item.getDataUrl().trim();
+            if (name.isEmpty() || !dataUrl.startsWith("data:")) continue;
+            if (item.getSize() > 12L * 1024L * 1024L) throw new BusinessException(name + " 超过 12MB，请压缩后再上传");
+            result.add(new ArticleAttachment(name, item.getType() == null ? "application/octet-stream" : item.getType(), item.getSize(), dataUrl));
+            count++;
+            if (count >= 8) break;
+        }
+        return result;
     }
 
     private ArticleStatus parseStatus(String status, ArticleStatus fallback) {

@@ -77,15 +77,22 @@ coverHeight: 320
           <option value="PENDING">提交审核</option>
           <option value="DRAFT">保存草稿</option>
         </select>
-        <div class="field-label">文章标签</div>
-        <div id="article-tags" class="tag-checks"></div>
+        <label class="field-label" for="article-tag-input">文章标签</label>
+        <div class="tag-compose">
+          <input id="article-tag-input" placeholder="输入标签，用逗号分隔；也可点击 AI 推荐">
+          <button type="button" id="ai-tags-btn" class="secondary">AI 推荐标签</button>
+        </div>
+        <div id="article-tags" class="tag-preview" aria-live="polite"></div>
+        <p class="blog-muted">AI 会根据当前标题和正文推荐标签，你也可以自己填写。</p>
+        <label class="field-label" for="article-files">文章附件</label>
+        <input id="article-files" type="file" multiple accept="image/*,.ppt,.pptx,.pdf,.doc,.docx,.xls,.xlsx,.zip,.txt,.md">
+        <div id="article-attachments" class="attachment-list" aria-live="polite"></div>
       </aside>
       <div class="blog-form-actions editor-actions">
         <button type="submit">保存文章</button>
         <button type="button" id="article-reset-btn" class="secondary">清空表单</button>
         <button type="button" id="ai-outline-btn" class="secondary">AI 生成大纲</button>
         <button type="button" id="ai-summary-btn" class="secondary">AI 生成摘要</button>
-        <button type="button" id="ai-tags-btn" class="secondary">AI 推荐标签</button>
       </div>
     </form>
     <div id="ai-output" class="ai-output"></div>

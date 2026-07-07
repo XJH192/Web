@@ -21,10 +21,10 @@
     </div>
     <div class="xjh-weather-forecast" id="xjh-weather-forecast"></div>
     <div class="xjh-weather-controls">
-      <div class="xjh-weather-search">
-        <input id="xjh-weather-input" type="search" list="xjh-weather-options" placeholder="输入城市或区县">
-        <datalist id="xjh-weather-options"></datalist>
+      <div class="xjh-weather-search" id="xjh-weather-searchbox">
+        <input id="xjh-weather-input" type="search" autocomplete="off" role="combobox" aria-expanded="false" aria-controls="xjh-weather-suggestions" placeholder="输入城市或区县">
         <button id="xjh-weather-search-btn" type="button">查询</button>
+        <div id="xjh-weather-suggestions" class="xjh-weather-suggestions" role="listbox" hidden></div>
       </div>
       <a id="xjh-weather-link" class="xjh-weather-link" href="https://weather.cma.cn/web/weather/54857.html" target="_blank" rel="noopener">打开天气网站</a>
     </div>
@@ -35,21 +35,21 @@
 <script>
   (function () {
     const presetList = [
-      { name: '青岛崂山区', latitude: 36.107, longitude: 120.468, link: 'https://weather.cma.cn/web/weather/54857.html' },
-      { name: '青岛市南区', latitude: 36.066, longitude: 120.382, link: 'https://weather.cma.cn/web/weather/54857.html' },
-      { name: '青岛市北区', latitude: 36.087, longitude: 120.374, link: 'https://weather.cma.cn/web/weather/54857.html' },
-      { name: '青岛李沧区', latitude: 36.145, longitude: 120.432, link: 'https://weather.cma.cn/web/weather/54857.html' },
-      { name: '北京市', latitude: 39.904, longitude: 116.407, link: 'https://weather.cma.cn/web/weather/54511.html' },
-      { name: '北京海淀区', latitude: 39.960, longitude: 116.298, link: 'https://weather.cma.cn/web/weather/54399.html' },
-      { name: '北京朝阳区', latitude: 39.921, longitude: 116.443, link: 'https://weather.cma.cn/web/weather/54433.html' },
-      { name: '上海市', latitude: 31.231, longitude: 121.474, link: 'https://weather.cma.cn/web/weather/58362.html' },
-      { name: '广州天河区', latitude: 23.135, longitude: 113.361, link: 'https://weather.cma.cn/web/weather/59287.html' },
-      { name: '深圳南山区', latitude: 22.533, longitude: 113.930, link: 'https://weather.cma.cn/web/weather/59493.html' },
-      { name: '杭州西湖区', latitude: 30.259, longitude: 120.130, link: 'https://weather.cma.cn/web/weather/58457.html' },
-      { name: '南京鼓楼区', latitude: 32.067, longitude: 118.769, link: 'https://weather.cma.cn/web/weather/58238.html' },
-      { name: '成都武侯区', latitude: 30.642, longitude: 104.043, link: 'https://weather.cma.cn/web/weather/56294.html' },
-      { name: '西安雁塔区', latitude: 34.213, longitude: 108.948, link: 'https://weather.cma.cn/web/weather/57036.html' },
-      { name: '武汉洪山区', latitude: 30.500, longitude: 114.343, link: 'https://weather.cma.cn/web/weather/57494.html' }
+      { name: '青岛崂山区', latitude: 36.107, longitude: 120.468, link: 'https://weather.cma.cn/web/weather/54857.html', aliases: ['崂山', '青岛崂山', 'laoshan'] },
+      { name: '青岛市南区', latitude: 36.066, longitude: 120.382, link: 'https://weather.cma.cn/web/weather/54857.html', aliases: ['市南', '青岛市南'] },
+      { name: '青岛市北区', latitude: 36.087, longitude: 120.374, link: 'https://weather.cma.cn/web/weather/54857.html', aliases: ['市北', '青岛市北'] },
+      { name: '青岛李沧区', latitude: 36.145, longitude: 120.432, link: 'https://weather.cma.cn/web/weather/54857.html', aliases: ['李沧', '青岛李沧'] },
+      { name: '北京市', latitude: 39.904, longitude: 116.407, link: 'https://weather.cma.cn/web/weather/54511.html', aliases: ['北京', 'beijing'] },
+      { name: '北京海淀区', latitude: 39.960, longitude: 116.298, link: 'https://weather.cma.cn/web/weather/54399.html', aliases: ['海淀', '北京海淀'] },
+      { name: '北京朝阳区', latitude: 39.921, longitude: 116.443, link: 'https://weather.cma.cn/web/weather/54433.html', aliases: ['朝阳', '北京朝阳'] },
+      { name: '上海市', latitude: 31.231, longitude: 121.474, link: 'https://weather.cma.cn/web/weather/58362.html', aliases: ['上海', 'shanghai'] },
+      { name: '广州天河区', latitude: 23.135, longitude: 113.361, link: 'https://weather.cma.cn/web/weather/59287.html', aliases: ['天河', '广州天河', '河'] },
+      { name: '深圳南山区', latitude: 22.533, longitude: 113.930, link: 'https://weather.cma.cn/web/weather/59493.html', aliases: ['南山', '深圳南山'] },
+      { name: '杭州西湖区', latitude: 30.259, longitude: 120.130, link: 'https://weather.cma.cn/web/weather/58457.html', aliases: ['西湖', '杭州西湖'] },
+      { name: '南京鼓楼区', latitude: 32.067, longitude: 118.769, link: 'https://weather.cma.cn/web/weather/58238.html', aliases: ['鼓楼', '南京鼓楼'] },
+      { name: '成都武侯区', latitude: 30.642, longitude: 104.043, link: 'https://weather.cma.cn/web/weather/56294.html', aliases: ['武侯', '成都武侯'] },
+      { name: '西安雁塔区', latitude: 34.213, longitude: 108.948, link: 'https://weather.cma.cn/web/weather/57036.html', aliases: ['雁塔', '西安雁塔'] },
+      { name: '武汉洪山区', latitude: 30.500, longitude: 114.343, link: 'https://weather.cma.cn/web/weather/57494.html', aliases: ['洪山', '武汉洪山'] }
     ];
     const els = {
       city: document.getElementById('xjh-weather-city'),
@@ -62,11 +62,11 @@
       wind: document.getElementById('xjh-weather-wind'),
       forecast: document.getElementById('xjh-weather-forecast'),
       input: document.getElementById('xjh-weather-input'),
-      options: document.getElementById('xjh-weather-options'),
       search: document.getElementById('xjh-weather-search-btn'),
       refresh: document.getElementById('xjh-weather-refresh'),
       status: document.getElementById('xjh-weather-status'),
-      link: document.getElementById('xjh-weather-link')
+      link: document.getElementById('xjh-weather-link'),
+      suggestions: document.getElementById('xjh-weather-suggestions')
     };
     const codeMap = {
       0: ['晴', '晴'], 1: ['晴间多云', '晴'], 2: ['多云', '云'], 3: ['阴', '阴'],
@@ -76,6 +76,8 @@
     };
     let activeLocation = presetList[0];
     let searchTimer = null;
+    let currentSuggestions = [];
+    let activeIndex = -1;
 
     function weatherLabel(code) { return codeMap[code] || ['天气变化', '天']; }
     function setStatus(text) { els.status.textContent = text; }
@@ -83,18 +85,67 @@
       const date = new Date(value + 'T00:00:00+08:00');
       return new Intl.DateTimeFormat('zh-CN', { timeZone: 'Asia/Shanghai', weekday: 'short' }).format(date);
     }
-    function normalize(text) { return String(text || '').replace(/市|区|县|省/g, '').toLowerCase(); }
-    function localMatches(keyword) {
+    function normalize(text) { return String(text || '').replace(/[\s·,，。市区县省]/g, '').toLowerCase(); }
+    function scoreLocation(item, keyword) {
       const key = normalize(keyword);
-      if (!key) return presetList.slice(0, 8);
-      return presetList.filter(function (item) {
-        return item.name.indexOf(keyword) >= 0 || normalize(item.name).indexOf(key) >= 0;
-      }).slice(0, 8);
+      if (!key) return 1;
+      const names = [item.name].concat(item.aliases || []).map(normalize);
+      let best = 0;
+      names.forEach(function (name) {
+        if (name === key) best = Math.max(best, 100);
+        else if (name.indexOf(key) === 0) best = Math.max(best, 80);
+        else if (name.indexOf(key) >= 0) best = Math.max(best, 60);
+        else {
+          let hit = 0;
+          key.split('').forEach(function (ch) { if (name.indexOf(ch) >= 0) hit += 1; });
+          if (hit === key.length) best = Math.max(best, 40 + hit);
+        }
+      });
+      return best;
     }
-    function renderOptions(items) {
-      els.options.innerHTML = items.map(function (item) {
-        return '<option value="' + item.name.replace(/"/g, '&quot;') + '"></option>';
-      }).join('');
+    function uniqueLocations(items) {
+      const seen = {};
+      return items.filter(function (item) {
+        const key = normalize(item.name);
+        if (seen[key]) return false;
+        seen[key] = true;
+        return true;
+      });
+    }
+    function localMatches(keyword) {
+      return presetList
+        .map(function (item) { return Object.assign({ score: scoreLocation(item, keyword) }, item); })
+        .filter(function (item) { return !keyword || item.score > 0; })
+        .sort(function (a, b) { return b.score - a.score || a.name.length - b.name.length; })
+        .slice(0, 8);
+    }
+    function escapeHtml(value) {
+      return String(value == null ? '' : value).replace(/[&<>"']/g, function (ch) {
+        return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[ch];
+      });
+    }
+    function renderSuggestions(items, keyword, nextIndex) {
+      currentSuggestions = uniqueLocations(items).slice(0, 8);
+      if (currentSuggestions.length) {
+        activeIndex = typeof nextIndex === 'number' ? Math.max(0, Math.min(nextIndex, currentSuggestions.length - 1)) : 0;
+      } else {
+        activeIndex = -1;
+      }
+      if (!currentSuggestions.length) {
+        els.suggestions.innerHTML = '<div class="xjh-weather-empty">没有匹配结果，按查询可尝试联网搜索。</div>';
+      } else {
+        els.suggestions.innerHTML = currentSuggestions.map(function (item, index) {
+          const active = index === activeIndex ? ' is-active' : '';
+          const sub = item.link && item.link.indexOf('weather.cma.cn/web/weather') >= 0 ? '可打开中央气象台详情' : '联网匹配结果';
+          return '<button type="button" class="xjh-weather-option' + active + '" data-weather-index="' + index + '" role="option"><span>' + escapeHtml(item.name) + '</span><small>' + escapeHtml(sub) + '</small></button>';
+        }).join('');
+      }
+      els.suggestions.hidden = false;
+      els.input.setAttribute('aria-expanded', 'true');
+    }
+    function hideSuggestions() {
+      els.suggestions.hidden = true;
+      els.input.setAttribute('aria-expanded', 'false');
     }
     async function remoteMatches(keyword) {
       const url = 'https://geocoding-api.open-meteo.com/v1/search?count=6&language=zh&format=json&name=' + encodeURIComponent(keyword);
@@ -107,21 +158,21 @@
       });
     }
     async function resolveLocation(name) {
-      const exact = presetList.find(function (item) { return item.name === name; });
+      const exact = presetList.find(function (item) { return normalize(item.name) === normalize(name); });
       if (exact) return exact;
-      const fuzzy = localMatches(name)[0];
-      if (fuzzy) return fuzzy;
+      const local = localMatches(name)[0];
+      if (local && local.score >= 40) return local;
       const remote = await remoteMatches(name);
       if (remote.length) return remote[0];
       throw new Error('没有找到这个城市或区县');
     }
     async function updateSuggestions(keyword) {
       const locals = localMatches(keyword);
-      renderOptions(locals);
+      renderSuggestions(locals, keyword);
       if (!keyword || keyword.trim().length < 2) return;
       try {
         const remotes = await remoteMatches(keyword.trim());
-        renderOptions(locals.concat(remotes).slice(0, 10));
+        renderSuggestions(locals.concat(remotes), keyword);
       } catch (error) {}
     }
     async function loadWeather(location) {
@@ -132,6 +183,7 @@
       els.desc.textContent = '正在更新';
       els.detail.textContent = '读取实时天气...';
       setStatus('正在连接天气服务...');
+      hideSuggestions();
       const params = new URLSearchParams({
         latitude: location.latitude,
         longitude: location.longitude,
@@ -162,7 +214,8 @@
     async function submitSearch() {
       const keyword = els.input.value.trim() || '青岛崂山区';
       try {
-        const location = await resolveLocation(keyword);
+        const selected = !els.suggestions.hidden && currentSuggestions[activeIndex] ? currentSuggestions[activeIndex] : null;
+        const location = selected || await resolveLocation(keyword);
         await loadWeather(location);
       } catch (error) {
         els.desc.textContent = '天气异常';
@@ -170,14 +223,33 @@
         setStatus('可以换一个城市或区县名称再试。');
       }
     }
+    function moveActive(delta) {
+      if (!currentSuggestions.length) return;
+      const nextIndex = (activeIndex + delta + currentSuggestions.length) % currentSuggestions.length;
+      renderSuggestions(currentSuggestions, els.input.value, nextIndex);
+    }
 
-    renderOptions(presetList.slice(0, 8));
+    els.input.addEventListener('focus', function () { updateSuggestions(els.input.value); });
     els.input.addEventListener('input', function () {
       clearTimeout(searchTimer);
-      searchTimer = setTimeout(function () { updateSuggestions(els.input.value); }, 220);
+      renderSuggestions(localMatches(els.input.value), els.input.value);
+      searchTimer = setTimeout(function () { updateSuggestions(els.input.value); }, 180);
     });
     els.input.addEventListener('keydown', function (event) {
-      if (event.key === 'Enter') submitSearch();
+      if (event.key === 'ArrowDown') { event.preventDefault(); moveActive(1); }
+      if (event.key === 'ArrowUp') { event.preventDefault(); moveActive(-1); }
+      if (event.key === 'Enter') { event.preventDefault(); submitSearch(); }
+      if (event.key === 'Escape') hideSuggestions();
+    });
+    els.suggestions.addEventListener('mousedown', function (event) {
+      const option = event.target.closest('[data-weather-index]');
+      if (!option) return;
+      event.preventDefault();
+      const location = currentSuggestions[Number(option.getAttribute('data-weather-index'))];
+      if (location) loadWeather(location);
+    });
+    document.addEventListener('click', function (event) {
+      if (!event.target.closest('.xjh-weather-card')) hideSuggestions();
     });
     els.search.addEventListener('click', submitSearch);
     els.refresh.addEventListener('click', function () { loadWeather(activeLocation); });
@@ -249,6 +321,7 @@
   .xjh-weather-forecast { flex-wrap: wrap; gap: 5px; margin-top: 8px; }
   .xjh-weather-forecast b { margin-right: 4px; color: #d8663f; }
   .xjh-weather-controls { align-items: stretch; flex-direction: column; gap: 7px; margin-top: 10px; }
+  .xjh-weather-search { position: relative; gap: 7px; align-items: stretch; }
   .xjh-weather-controls input {
     min-width: 0;
     flex: 1;
@@ -266,7 +339,6 @@
     border-color: #e67249;
     box-shadow: 0 0 0 3px rgba(230, 114, 73, .14);
   }
-  .xjh-weather-search { gap: 7px; }
   .xjh-weather-search button,
   .xjh-weather-link {
     min-height: 34px;
@@ -287,4 +359,35 @@
   }
   .xjh-weather-link { background: rgba(230, 114, 73, .12); color: #c95531; }
   .xjh-weather-source { margin: 8px 0 0; line-height: 1.5; }
+  .xjh-weather-suggestions {
+    position: absolute;
+    left: 0;
+    right: 48px;
+    top: calc(100% + 6px);
+    z-index: 60;
+    max-height: 220px;
+    overflow: auto;
+    border: 1px solid rgba(230, 114, 73, .22);
+    border-radius: 10px;
+    background: #2f2926;
+    box-shadow: 0 8px 20px rgba(47, 36, 31, .18);
+    padding: 5px;
+  }
+  .xjh-weather-option {
+    width: 100%;
+    min-height: 42px;
+    border: 0;
+    border-radius: 8px;
+    padding: 7px 9px;
+    background: transparent;
+    color: #fffaf6;
+    display: grid;
+    gap: 2px;
+    text-align: left;
+    cursor: pointer;
+  }
+  .xjh-weather-option small { color: rgba(255, 250, 246, .72); font-size: 12px; }
+  .xjh-weather-option:hover,
+  .xjh-weather-option.is-active { background: rgba(230, 114, 73, .28); }
+  .xjh-weather-empty { padding: 10px; color: rgba(255, 250, 246, .8); font-size: 12px; line-height: 1.6; }
 </style>
