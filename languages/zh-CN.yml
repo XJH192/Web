@@ -1,26 +1,23 @@
 continue: 查看更多
 nav:
-  home: 回到首页
-
+  home: 首页
 search: 搜索
 archive: 文章归档
 recent_posts: 最新文章
 categories: 文章分类
-hitokoto: 一言
+hitokoto: 提示语
 tagcloud: 标签云
-social: 社交按钮
-
+social: 社交链接
 count:
   articles: 文章
   tags: 标签
   categories: 分类
-  
 copyright:
-  author: 本文作者
+  author: 作者
   permalink: 本文链接
   from: 文章来源
 memos:
-  loading: 加载中...
+  loading: 正在加载...
   more: 加载更多
   no_dynamic: 暂无动态
   loading_failed: 加载失败

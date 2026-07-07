@@ -1,84 +1,97 @@
-// 参考 https://chaooo.github.io/article/20161109.html
-let searchData;
-function loadData(arg) {
-    console.log(arg)
-     if(!arg || arg.length == 0 || !arg[0]) {
-        return document.getElementsByClassName('search-body')[0].innerHTML = '';
+﻿let searchData;
+
+function clearSearchResults() {
+    const body = document.getElementsByClassName('search-body')[0];
+    if (body) body.innerHTML = '';
+}
+
+function loadData(keywords) {
+    if (!keywords || keywords.length === 0 || !keywords[0]) {
+        clearSearchResults();
+        return;
     }
+
     if (!searchData) {
         const xhr = new XMLHttpRequest();
         xhr.open('GET', '/search.json', true);
         xhr.onload = function () {
             if (this.status >= 200 && this.status < 300) {
                 const res = JSON.parse(this.response || this.responseText);
-                searchData = res instanceof Array ? res : res.posts;
-                searchkey(arg);
+                searchData = Array.isArray(res) ? res : res.posts || [];
+                searchkey(keywords);
             } else {
-                console.error(statusText);
+                console.error('Failed to load search data:', this.statusText);
             }
         };
         xhr.onerror = function () {
-            console.error(statusText);
+            console.error('Failed to load search data.');
         };
         xhr.send();
     } else {
-        searchkey(arg);
+        searchkey(keywords);
     }
 }
 
-function searchkey(keyword) {
-    keyword.forEach(word => {
+function searchkey(keywords) {
+    clearSearchResults();
+    const results = [];
+
+    keywords.forEach(word => {
+        const keyword = word.trim();
+        if (!keyword) return;
+        const reg = new RegExp(keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+
         searchData.forEach(post => {
-            const rend = {};
-            const reg = new RegExp(word, 'g');
-            let flag = false;
-            if (post.title.search(reg) !== -1) {
-                rend.title = post.title.replace(reg, `<span class="keyword">${word}</span>`);
-                flag = true;
-            }
-            const textpos = post.content.search(reg);
-            if (textpos !== -1) {
-                rend.text = `…${post.content.substring(textpos, textpos + 18)}…`;
-                rend.text = rend.text.replace(reg, `<span class="keyword">${word}</span>`);
-                flag = true;
-            }
-            if (flag) {
-                rend.title = !rend.title ? post.title : rend.title;
-                rend.text = !rend.text ? post.content : rend.text;
-                rend.href = post.url;
-                render(rend);
-            }
+            const title = post.title || '';
+            const content = (post.content || '').replace(/<[^>]+>/g, ' ');
+            const textpos = content.search(reg);
+            const titleMatch = title.search(reg) !== -1;
+            const contentMatch = textpos !== -1;
+
+            if (!titleMatch && !contentMatch) return;
+
+            const start = Math.max(0, textpos - 20);
+            const excerpt = contentMatch ? content.substring(start, textpos + 80) : content.substring(0, 100);
+            results.push({
+                title: title.replace(reg, match => `<span class="keyword">${match}</span>`),
+                text: excerpt.replace(reg, match => `<span class="keyword">${match}</span>`),
+                href: post.url || post.path || '#'
+            });
         });
     });
+
+    results.slice(0, 12).forEach(render);
 }
 
 function render(data) {
+    const body = document.getElementsByClassName('search-body')[0];
+    if (!body) return;
     const ele = document.createElement('div');
     ele.className = 'search-result';
-    ele.innerHTML = `<a href=${data.href}><div class="search-result-title">${data.title}</div>
-    <div class="search-result-text">${data.text}</div></a>`;
-    document.getElementsByClassName('search-body')[0].appendChild(ele);
+    ele.innerHTML = `<a href="${data.href}"><div class="search-result-title">${data.title}</div><div class="search-result-text">${data.text}</div></a>`;
+    body.appendChild(ele);
 }
 
-// 主程序
 const key = decodeURI(location.search.split('?q=')[1]);
 if (key !== undefined && key !== 'undefined') {
-    document.getElementsByClassName('search-input')[0].value = key;
+    const input = document.getElementsByClassName('search-input')[0];
+    if (input) input.value = key;
     loadData(format(key));
-    document.getElementById('nexmoe-search-space').style.display = 'flex';
+    const searchSpace = document.getElementById('nexmoe-search-space');
+    if (searchSpace) searchSpace.style.display = 'flex';
 }
 
-// 事件
 function sclose() {
-    document.getElementById('nexmoe-search-space').style.display = 'none';
+    const searchSpace = document.getElementById('nexmoe-search-space');
+    if (searchSpace) searchSpace.style.display = 'none';
 }
 
 function sinput() {
-    document.getElementsByClassName('search-body')[0].innerHTML = '';
-    loadData(format(document.getElementsByClassName('search-input')[0].value));
+    const input = document.getElementsByClassName('search-input')[0];
+    clearSearchResults();
+    if (input) loadData(format(input.value));
 }
 
-// 搜索词格式化
 function format(word) {
-    return word.replace(/[ ]/g, '').split(' ');
+    return word.trim().split(/\s+/).filter(Boolean);
 }

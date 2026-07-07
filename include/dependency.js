@@ -19,7 +19,7 @@ module.exports = hexo => {
         return false;
     }
 
-    console.info('[tangyuxian] Checking package dependencies');
+    console.info('[xjh] Checking package dependencies');
     const dependencies = Object.assign({}, packageInfo.dependencies);
     const missingDeps = Object.keys(dependencies)
         .filter(name => !checkDependency(name, dependencies[name]));

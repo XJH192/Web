@@ -1,7 +1,7 @@
 <div class="nexmoe-drawer mdui-drawer" id="drawer">
     <div class="nexmoe-avatar mdui-ripple">
         <a href="<%- url_for() %>" title="<%= config.author || config.title %>">
-            <img src="<%= theme.avatar %>" alt="<%= config.author || config.title %>" alt="<%= config.author || config.title %>">
+            <img src="<%= theme.avatar %>" alt="<%= config.author || config.title %>">
         </a>
     </div>
     <div class="nexmoe-count">
@@ -10,25 +10,50 @@
         <div class="nexmoe-count-item"><span><%= __('count.categories') %></span><%= site.categories.length %><div class="item-radius"></div><div class="item-radius item-right"></div></div>
     </div>
     <div class="nexmoe-list mdui-list" mdui-collapse="{accordion: true}">
-        <% for (name in theme.menu) { %>
-        <a class="nexmoe-list-item mdui-list-item mdui-ripple <%= is_current(theme.menu[name][0]) %>" href="<%- url_for(theme.menu[name][0]) -%>" title="<%= name %>">
+        <% for (name in theme.menu) { const href = theme.menu[name][0]; const roleEntry = href === '/blog.html' ? 'user' : (href === '/admin.html' ? 'admin' : ''); %>
+        <a class="nexmoe-list-item mdui-list-item mdui-ripple <%= is_current(href) %>" href="<%- url_for(href) -%>" title="<%= name %>" <% if (roleEntry) { %>data-role-entry="<%= roleEntry %>"<% } %>>
             <i class="mdui-list-item-icon nexmoefont <% if (theme.menu[name][1]){ %><%= theme.menu[name][1] %><%} else{ %><%= 'icon-unorderedlist' %><% } %>"></i>
-            <div class="mdui-list-item-content">
-                <%= name %>
-            </div>
+            <div class="mdui-list-item-content"><%= name %></div>
         </a>
         <% } %>
     </div>
-    
+    <script>
+        (function () {
+            function readUser() {
+                try { return JSON.parse(localStorage.getItem('blogUser') || 'null'); }
+                catch (error) { return null; }
+            }
+            function showEntry(entry, visible) {
+                if (!entry) return;
+                entry.style.display = visible ? 'flex' : 'none';
+            }
+            const user = readUser();
+            const userEntry = document.querySelector('[data-role-entry="user"]');
+            const adminEntry = document.querySelector('[data-role-entry="admin"]');
+            if (!user) {
+                showEntry(userEntry, false);
+                showEntry(adminEntry, false);
+                return;
+            }
+            if (user.role === 'ADMIN') {
+                showEntry(userEntry, false);
+                showEntry(adminEntry, true);
+            } else {
+                showEntry(userEntry, true);
+                showEntry(adminEntry, false);
+            }
+        }());
+    </script>
+
     <% theme.widgets.forEach(function(widget){ %>
         <% if(widget.enable){ %>
         <%- partial('_widget/' + widget.name, {options: widget.options}) %>
     <% }}) %>
-   
+
     <div class="nexmoe-copyright">
         &copy; <%= date(new Date(), 'YYYY') %> <%= config.author || config.title %>
         <%= __('Powered by') %> <a href="http://hexo.io/" target="_blank">Hexo</a>
-        & <a href="https://github.com/tangyuxian/hexo-theme-tangyuxian" target="_blank">Tangyuxian</a>
+        & <a href="/about.html">xjh</a>
         <%- theme.slotSidebar %>
     </div>
 </div><!-- .nexmoe-drawer -->

@@ -1,0 +1,67 @@
+:root {
+  --radius: 10px;
+  --color-primary: #e67249;
+  --color-primary-bg: rgba(230, 114, 73, .14);
+  --color-card-opacity: rgba(255, 250, 246, .74);
+  --color-shadow: rgba(117, 73, 51, .18);
+  --color-text-1: #2f241f;
+  --color-text-2: #5f4a40;
+  --color-text-3: #3e3029;
+}
+
+.local-comment-placeholder,
+.article-end-note {
+  color: var(--color-text-2);
+  font-size: 14px;
+}
+
+.nexmoe-post article code { word-break: break-word; }
+.nexmoe-widget-title { letter-spacing: 0; font-weight: 700 !important; }
+
+/* 角色入口默认隐藏，侧栏脚本会按登录身份显示用户工作台或管理员后台。 */
+a[data-role-entry],
+.user-only-link,
+.admin-only-link {
+  display: none;
+}
+
+#nexmoe-header .nexmoe-list .nexmoe-list-item {
+  color: #6f625b;
+  background: transparent;
+}
+
+#nexmoe-header .nexmoe-list .nexmoe-list-item i { color: #d68a69; }
+
+#nexmoe-header .nexmoe-list .nexmoe-list-item.true {
+  background: #e67249;
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(230, 114, 73, .24);
+}
+
+#nexmoe-header .nexmoe-list .nexmoe-list-item.true i { color: #fff; }
+
+.nexmoe-widget-wrap {
+  border: 1px solid rgba(230, 114, 73, .14);
+  background: rgba(255, 250, 246, .88) !important;
+  box-shadow: 0 2px 8px rgba(87, 48, 31, .12) !important;
+}
+
+.nexmoe-widget-wrap .nexmoe-social a {
+  transition: transform .16s ease, box-shadow .16s ease, background .16s ease;
+}
+
+.nexmoe-widget-wrap .nexmoe-social a:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 2px 8px rgba(87, 48, 31, .14);
+}
+
+.nexmoe-post article .blog-app h2::before,
+.nexmoe-post article .blog-app h2::after,
+.nexmoe-post article .blog-app p::after {
+  display: none !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nexmoe-widget-wrap .nexmoe-social a { transition: none; }
+  .nexmoe-widget-wrap .nexmoe-social a:hover { transform: none; }
+}

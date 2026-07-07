@@ -1,0 +1,686 @@
+(function () {
+  const API_BASE = window.BLOG_API_BASE || 'http://127.0.0.1:8080/api';
+  const state = { categories: [], tags: [], currentUser: null };
+
+  function $(id) { return document.getElementById(id); }
+  function token() { return localStorage.getItem('blogToken') || ''; }
+  function storedUser() {
+    try { return JSON.parse(localStorage.getItem('blogUser') || 'null'); }
+    catch (error) { return null; }
+  }
+  function setSession(loginResponse) {
+    localStorage.setItem('blogToken', loginResponse.token);
+    localStorage.setItem('blogUser', JSON.stringify(loginResponse.user));
+    state.currentUser = loginResponse.user;
+    applyRoleNavigation(loginResponse.user);
+  }
+  function clearSession() {
+    localStorage.removeItem('blogToken');
+    localStorage.removeItem('blogUser');
+    state.currentUser = null;
+  }
+  function escapeHtml(value) {
+    return String(value == null ? '' : value)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
+  function textPreview(value, max) {
+    const text = String(value || '').replace(/<[^>]+>/g, '').trim();
+    return text.length > max ? text.slice(0, max) + '...' : text;
+  }
+  function show(id, message) {
+    const el = $(id);
+    if (el) el.textContent = message || '';
+  }
+  function roleText(role) {
+    return role === 'ADMIN' ? '管理员' : '普通用户';
+  }
+  function statusText(status) {
+    const map = {
+      PUBLISHED: '已上架',
+      DRAFT: '草稿',
+      PENDING: '待审核',
+      REJECTED: '已驳回',
+      APPROVED: '已通过'
+    };
+    return map[status] || status || '';
+  }
+  function statusClass(status) {
+    const map = { PUBLISHED: 'success', APPROVED: 'success', PENDING: 'warning', DRAFT: 'muted', REJECTED: 'danger' };
+    return map[status] || 'muted';
+  }
+  function featureText(feature) {
+    const map = {
+      AI_OUTLINE: 'AI 大纲生成',
+      AI_SUMMARY: 'AI 摘要生成',
+      AI_TAGS: 'AI 标签推荐',
+      AI_COMMENT_REVIEW: 'AI 评论审核',
+      AI_QA: 'AI 博客问答'
+    };
+    return map[feature] || feature || '';
+  }
+  function reviewText(value) {
+    if (!value) return '未审核';
+    if (value.indexOf('PASS') === 0) return 'AI 初审通过：普通评论';
+    if (value.indexOf('REJECT') === 0) return value.replace('REJECT:', 'AI 初审拒绝：');
+    return value;
+  }
+  function formatDate(value) {
+    if (!value) return '';
+    return String(value).replace('T', ' ').slice(0, 16);
+  }
+  function userLine(user) {
+    if (!user) return '未登录';
+    return `${user.nickname || user.username}（${roleText(user.role)}${user.banned ? '，已封禁' : ''}）`;
+  }
+  function loginUrl() {
+    return '/login.html?redirect=' + encodeURIComponent(location.pathname + location.search);
+  }
+  function redirectByRole(user) {
+    location.href = user.role === 'ADMIN' ? '/admin.html' : '/blog.html';
+  }
+  function setLinksByHref(href, visible) {
+    document.querySelectorAll('a[href]').forEach(function (link) {
+      const raw = link.getAttribute('href') || '';
+      if (raw === href || raw.endsWith(href)) {
+        const item = link.closest('.nexmoe-list-item') || link;
+        item.style.display = visible ? (item.classList.contains('nexmoe-list-item') ? 'flex' : 'inline-block') : 'none';
+      }
+    });
+  }
+  function applyRoleNavigation(user) {
+    if (!user) return;
+    if (user.role === 'ADMIN') {
+      setLinksByHref('/admin.html', true);
+      setLinksByHref('/blog.html', false);
+      document.querySelectorAll('.admin-only-link').forEach(el => { el.style.display = 'inline-block'; });
+      document.querySelectorAll('.user-only-link').forEach(el => { el.style.display = 'none'; });
+    } else {
+      setLinksByHref('/blog.html', true);
+      setLinksByHref('/admin.html', false);
+      document.querySelectorAll('.user-only-link').forEach(el => { el.style.display = 'inline-block'; });
+      document.querySelectorAll('.admin-only-link').forEach(el => { el.style.display = 'none'; });
+    }
+  }
+
+  async function api(path, options) {
+    const opts = options || {};
+    const headers = Object.assign({ 'Content-Type': 'application/json' }, opts.headers || {});
+    if (token()) headers['X-Token'] = token();
+    let response;
+    try {
+      response = await fetch(API_BASE + path, Object.assign({}, opts, { headers }));
+    } catch (error) {
+      throw new Error('无法连接后端，请确认 MySQL 和后端服务已启动');
+    }
+    let json;
+    try {
+      json = await response.json();
+    } catch (error) {
+      throw new Error('后端返回格式异常');
+    }
+    if (!response.ok || !json.success) throw new Error(json.message || '请求失败');
+    return json.data;
+  }
+  async function verifySession() {
+    if (!token()) return null;
+    try {
+      const user = await api('/auth/me');
+      localStorage.setItem('blogUser', JSON.stringify(user));
+      state.currentUser = user;
+      applyRoleNavigation(user);
+      return user;
+    } catch (error) {
+      clearSession();
+      return null;
+    }
+  }
+  async function requireLogin() {
+    const user = await verifySession();
+    if (!user) {
+      location.href = loginUrl();
+      throw new Error('请先登录');
+    }
+    return user;
+  }
+  async function requireAdmin() {
+    const user = await requireLogin();
+    if (user.role !== 'ADMIN') {
+      alert('当前账号不是管理员，已返回用户工作台');
+      location.href = '/blog.html';
+      throw new Error('需要管理员权限');
+    }
+    return user;
+  }
+  async function loadTaxonomy() {
+    const categories = await api('/categories');
+    const tags = await api('/tags');
+    state.categories = categories || [];
+    state.tags = tags || [];
+  }
+  function categoryOptions(selected, placeholder) {
+    const first = placeholder == null ? '' : `<option value="">${escapeHtml(placeholder)}</option>`;
+    if (!state.categories.length) return first || '<option value="">暂无分类</option>';
+    return first + state.categories.map(c => `<option value="${c.id}" ${Number(selected) === c.id ? 'selected' : ''}>${escapeHtml(c.name)}</option>`).join('');
+  }
+  function tagOptions(selected, placeholder) {
+    const first = placeholder == null ? '<option value="">全部标签</option>' : `<option value="">${escapeHtml(placeholder)}</option>`;
+    return first + state.tags.map(t => `<option value="${t.id}" ${Number(selected) === t.id ? 'selected' : ''}>${escapeHtml(t.name)}</option>`).join('');
+  }
+  function tagChecks(selectedIds) {
+    const selected = selectedIds || [];
+    return state.tags.map(t => `<label><input type="checkbox" value="${t.id}" ${selected.indexOf(t.id) >= 0 ? 'checked' : ''}> ${escapeHtml(t.name)}</label>`).join('') || '<span class="blog-muted">暂无标签，可让管理员先创建</span>';
+  }
+  function selectedTagIds() {
+    return Array.from(document.querySelectorAll('#article-tags input:checked')).map(input => Number(input.value));
+  }
+  function renderAiResult(targetId, data) {
+    const target = $(targetId);
+    if (!target) return;
+    if (data.outline) {
+      target.innerHTML = `<strong>建议大纲</strong><ol>${data.outline.map(item => `<li>${escapeHtml(item.replace(/^\d+\.\s*/, ''))}</li>`).join('')}</ol>`;
+      return;
+    }
+    if (data.summary) {
+      target.innerHTML = `<strong>生成摘要</strong><p>${escapeHtml(data.summary)}</p>`;
+      return;
+    }
+    if (data.tags) {
+      target.innerHTML = `<strong>推荐标签</strong><p>${data.tags.map(tag => `<span class="tag-pill">${escapeHtml(tag)}</span>`).join('')}</p>`;
+      return;
+    }
+    if (data.answer) {
+      target.innerHTML = `<strong>回答</strong><p>${escapeHtml(data.answer)}</p>`;
+      return;
+    }
+    target.textContent = JSON.stringify(data, null, 2);
+  }
+  function buildQuery(fields) {
+    const params = new URLSearchParams();
+    fields.forEach(function (field) {
+      const el = $(field.id);
+      if (el && el.value && el.value.trim()) params.set(field.name, el.value.trim());
+    });
+    return params.toString();
+  }
+
+  async function initLoginPage() {
+    const user = await verifySession();
+    const cached = user || storedUser();
+    if (cached) {
+      show('login-status', `当前已登录：${userLine(cached)}`);
+      const enterBtn = $('enter-system-btn');
+      if (enterBtn) enterBtn.hidden = false;
+    }
+
+    if ($('login-form')) $('login-form').addEventListener('submit', async function (event) {
+      event.preventDefault();
+      show('login-status', '正在登录并校验数据库账号...');
+      try {
+        const data = await api('/auth/login', {
+          method: 'POST',
+          body: JSON.stringify({ username: $('login-username').value.trim(), password: $('login-password').value })
+        });
+        setSession(data);
+        show('login-status', `登录成功：${userLine(data.user)}，正在进入对应页面...`);
+        setTimeout(function () { redirectByRole(data.user); }, 350);
+      } catch (error) {
+        show('login-status', error.message);
+      }
+    });
+
+    if ($('register-form')) $('register-form').addEventListener('submit', async function (event) {
+      event.preventDefault();
+      show('register-status', '正在写入数据库...');
+      try {
+        const user = await api('/auth/register', {
+          method: 'POST',
+          body: JSON.stringify({
+            username: $('register-username').value.trim(),
+            nickname: $('register-nickname').value.trim(),
+            password: $('register-password').value
+          })
+        });
+        show('register-status', `注册成功：${user.nickname || user.username}，请在左侧登录`);
+        event.target.reset();
+      } catch (error) {
+        show('register-status', error.message);
+      }
+    });
+  }
+
+  async function initBlogPage() {
+    const user = await requireLogin();
+    if (user.role === 'ADMIN') {
+      location.href = '/admin.html';
+      return;
+    }
+    applyRoleNavigation(user);
+    await loadTaxonomy();
+
+    $('blog-user-summary').textContent = `当前用户：${userLine(user)}。提交后的文章需要管理员审核，通过后才会显示到首页。`;
+    $('home-category-filter').innerHTML = categoryOptions(null, '全部分类');
+    $('home-tag-filter').innerHTML = tagOptions(null, '全部标签');
+    $('blog-category-filter').innerHTML = categoryOptions(null, '全部分类');
+    $('blog-tag-filter').innerHTML = tagOptions(null, '全部标签');
+    $('article-category').innerHTML = categoryOptions(null, '请选择分类');
+    $('article-tags').innerHTML = tagChecks([]);
+
+    async function loadHomeComments(articleId) {
+      const list = document.querySelector(`[data-comment-list="${articleId}"]`);
+      if (!list) return;
+      list.innerHTML = '<p class="blog-muted">正在加载评论...</p>';
+      try {
+        const comments = await api('/articles/' + articleId + '/comments');
+        list.innerHTML = comments.map(c => `
+          <div class="comment-item feed-comment">
+            <p>${escapeHtml(c.content)}</p>
+            <p class="comment-meta">${escapeHtml(c.nickname)} | ${formatDate(c.createdAt)} | ${escapeHtml(reviewText(c.aiReviewResult))}</p>
+          </div>
+        `).join('') || '<p class="blog-muted">暂无已通过评论。</p>';
+      } catch (error) {
+        list.innerHTML = `<p class="blog-muted">${escapeHtml(error.message)}</p>`;
+      }
+    }
+
+    async function loadHomeArticles() {
+      try {
+        show('home-status', '正在加载首页文章...');
+        const query = buildQuery([
+          { id: 'home-keyword', name: 'keyword' },
+          { id: 'home-category-filter', name: 'categoryId' },
+          { id: 'home-tag-filter', name: 'tagId' }
+        ]);
+        const articles = await api('/articles/feed' + (query ? '?' + query : ''));
+        $('home-article-list').innerHTML = articles.map(article => `
+          <article class="article-card feed-card">
+            <div class="article-card-head">
+              <span class="status-pill success">已上架</span>
+              <span class="article-meta">点赞 ${article.likeCount || 0} | 阅读 ${article.viewCount || 0}</span>
+            </div>
+            <h3>${escapeHtml(article.title)}</h3>
+            <p class="article-meta">作者：${escapeHtml(article.authorName)} | 分类：${escapeHtml(article.categoryName)} | ${formatDate(article.createdAt)}</p>
+            <p>${escapeHtml(article.summary || textPreview(article.content, 140))}</p>
+            <p>${(article.tagNames || []).map(t => `<span class="tag-pill">${escapeHtml(t)}</span>`).join('')}</p>
+            <div class="article-actions">
+              <a class="blog-link-btn" href="/article.html?id=${article.id}">查看全文</a>
+              <button type="button" class="secondary" data-home-like="${article.id}">点赞</button>
+              <button type="button" class="secondary" data-home-comments="${article.id}">查看评论</button>
+            </div>
+            <div class="home-comment-box" data-comment-box="${article.id}">
+              <form data-home-comment-form="${article.id}" class="blog-form inline-comment-form">
+                <textarea data-comment-input="${article.id}" required rows="3" placeholder="写下评论，提交后等待管理员审核"></textarea>
+                <button type="submit">提交评论</button>
+              </form>
+              <div class="blog-status" data-comment-status="${article.id}"></div>
+              <div data-comment-list="${article.id}" class="feed-comments"></div>
+            </div>
+          </article>
+        `).join('') || '<p class="blog-muted">暂无其他用户已上架博客。管理员审核通过后，文章会显示在这里。</p>';
+        show('home-status', `首页已加载 ${articles.length} 篇已上架文章`);
+      } catch (error) {
+        show('home-status', error.message);
+      }
+    }
+
+    async function loadMyArticles() {
+      try {
+        show('blog-status', '正在加载你的文章...');
+        const query = buildQuery([
+          { id: 'blog-keyword', name: 'keyword' },
+          { id: 'blog-category-filter', name: 'categoryId' },
+          { id: 'blog-tag-filter', name: 'tagId' }
+        ]);
+        const articles = await api('/articles/mine' + (query ? '?' + query : ''));
+        $('article-list').innerHTML = articles.map(article => `
+          <article class="article-card">
+            <div class="article-card-head">
+              <span class="status-pill ${statusClass(article.status)}">${statusText(article.status)}</span>
+              <span class="article-meta">点赞 ${article.likeCount || 0} | 阅读 ${article.viewCount || 0}</span>
+            </div>
+            <h3>${escapeHtml(article.title)}</h3>
+            <p class="article-meta">${escapeHtml(article.categoryName)} | ${formatDate(article.createdAt)}</p>
+            <p>${escapeHtml(article.summary || textPreview(article.content, 120))}</p>
+            <p>${(article.tagNames || []).map(t => `<span class="tag-pill">${escapeHtml(t)}</span>`).join('')}</p>
+            <div class="article-actions">
+              <a class="blog-link-btn" href="/article.html?id=${article.id}">查看</a>
+              <button type="button" class="secondary" data-edit="${article.id}">编辑</button>
+              <button type="button" class="danger" data-delete="${article.id}">删除</button>
+            </div>
+          </article>
+        `).join('') || '<p class="blog-muted">你还没有文章，可以在下方发布第一篇。</p>';
+        show('blog-status', `已加载 ${articles.length} 篇你的文章`);
+      } catch (error) {
+        show('blog-status', error.message);
+      }
+    }
+
+    $('home-search-btn').addEventListener('click', loadHomeArticles);
+    $('home-article-list').addEventListener('click', async function (event) {
+      const likeId = event.target.getAttribute('data-home-like');
+      const commentsId = event.target.getAttribute('data-home-comments');
+      try {
+        if (likeId) {
+          await api('/articles/' + likeId + '/like', { method: 'POST' });
+          show('home-status', '点赞成功');
+          await loadHomeArticles();
+        }
+        if (commentsId) await loadHomeComments(commentsId);
+      } catch (error) {
+        show('home-status', error.message);
+      }
+    });
+    $('home-article-list').addEventListener('submit', async function (event) {
+      const articleId = event.target.getAttribute('data-home-comment-form');
+      if (!articleId) return;
+      event.preventDefault();
+      const input = document.querySelector(`[data-comment-input="${articleId}"]`);
+      const status = document.querySelector(`[data-comment-status="${articleId}"]`);
+      try {
+        if (status) status.textContent = '评论提交中...';
+        await api('/articles/' + articleId + '/comments', {
+          method: 'POST',
+          body: JSON.stringify({ content: input.value, parentId: null })
+        });
+        input.value = '';
+        if (status) status.textContent = '评论已提交，等待管理员审核后公开显示。';
+      } catch (error) {
+        if (status) status.textContent = error.message;
+      }
+    });
+
+    $('blog-search-btn').addEventListener('click', loadMyArticles);
+    $('logout-btn').addEventListener('click', function () {
+      clearSession();
+      location.href = '/login.html';
+    });
+    $('article-reset-btn').addEventListener('click', function () {
+      $('article-form').reset();
+      $('article-id').value = '';
+      $('article-tags').innerHTML = tagChecks([]);
+      show('blog-status', '已清空编辑表单');
+    });
+    $('article-list').addEventListener('click', async function (event) {
+      const editId = event.target.getAttribute('data-edit');
+      const deleteId = event.target.getAttribute('data-delete');
+      try {
+        if (editId) {
+          const article = await api('/articles/' + editId);
+          $('article-id').value = article.id;
+          $('article-title').value = article.title;
+          $('article-summary').value = article.summary || '';
+          $('article-content').value = article.content;
+          $('article-category').value = article.categoryId;
+          $('article-status').value = article.status === 'DRAFT' ? 'DRAFT' : 'PENDING';
+          $('article-tags').innerHTML = tagChecks(article.tagIds || []);
+          show('blog-status', `正在编辑文章：${article.title}`);
+          $('article-title').focus();
+        }
+        if (deleteId && confirm('确认删除这篇文章吗？')) {
+          await api('/articles/' + deleteId, { method: 'DELETE' });
+          await loadMyArticles();
+        }
+      } catch (error) {
+        show('blog-status', error.message);
+      }
+    });
+
+    $('article-form').addEventListener('submit', async function (event) {
+      event.preventDefault();
+      const id = $('article-id').value;
+      const payload = {
+        title: $('article-title').value,
+        summary: $('article-summary').value,
+        content: $('article-content').value,
+        categoryId: Number($('article-category').value),
+        tagIds: selectedTagIds(),
+        status: $('article-status').value
+      };
+      try {
+        show('blog-status', '正在保存到数据库...');
+        await api('/articles' + (id ? '/' + id : ''), { method: id ? 'PUT' : 'POST', body: JSON.stringify(payload) });
+        event.target.reset();
+        $('article-id').value = '';
+        $('article-tags').innerHTML = tagChecks([]);
+        await loadMyArticles();
+        show('blog-status', payload.status === 'DRAFT' ? '草稿已保存' : '文章已提交审核，管理员通过后会上架首页');
+      } catch (error) {
+        show('blog-status', error.message);
+      }
+    });
+
+    async function runAi(path, payload) {
+      try {
+        show('blog-status', 'AI 正在生成...');
+        const data = await api(path, { method: 'POST', body: JSON.stringify(payload) });
+        renderAiResult('ai-output', data);
+        show('blog-status', 'AI 生成完成，记录已写入数据库日志');
+      } catch (error) {
+        show('blog-status', error.message);
+        $('ai-output').textContent = error.message;
+      }
+    }
+    $('ai-outline-btn').addEventListener('click', () => runAi('/ai/outline', { title: $('article-title').value }));
+    $('ai-summary-btn').addEventListener('click', () => runAi('/ai/summary', { content: $('article-content').value }));
+    $('ai-tags-btn').addEventListener('click', () => runAi('/ai/tags', { title: $('article-title').value, content: $('article-content').value }));
+
+    await loadHomeArticles();
+    await loadMyArticles();
+  }
+
+  async function initArticlePage() {
+    const user = await requireLogin();
+    applyRoleNavigation(user);
+    const id = new URLSearchParams(location.search).get('id') || '1';
+    async function loadDetail() {
+      const article = await api('/articles/' + id);
+      $('article-detail').innerHTML = `
+        <h1>${escapeHtml(article.title)}</h1>
+        <p class="article-meta">作者：${escapeHtml(article.authorName)} | 分类：${escapeHtml(article.categoryName)} | ${formatDate(article.createdAt)} | 阅读 ${article.viewCount} | 点赞 ${article.likeCount || 0}</p>
+        <p><span class="status-pill ${statusClass(article.status)}">${statusText(article.status)}</span> ${(article.tagNames || []).map(t => `<span class="tag-pill">${escapeHtml(t)}</span>`).join('')}</p>
+        <p>${escapeHtml(article.content)}</p>
+      `;
+    }
+    async function loadComments() {
+      const comments = await api('/articles/' + id + '/comments');
+      $('comment-list').innerHTML = comments.map(c => `
+        <div class="comment-item ${c.parentId ? 'nested-comment' : ''}">
+          <p>${escapeHtml(c.content)}</p>
+          <p class="comment-meta">#${c.id}${c.parentId ? ' 回复 #' + c.parentId : ''} ${escapeHtml(c.nickname)} | ${formatDate(c.createdAt)} | ${escapeHtml(reviewText(c.aiReviewResult))}</p>
+          <button type="button" class="secondary" data-reply="${c.id}">回复</button>
+        </div>
+      `).join('') || '<p class="blog-muted">暂无已通过评论。</p>';
+    }
+    $('comment-list').addEventListener('click', function (event) {
+      const replyId = event.target.getAttribute('data-reply');
+      if (!replyId) return;
+      $('comment-parent-id').value = replyId;
+      $('comment-content').focus();
+    });
+    $('comment-form').addEventListener('submit', async function (event) {
+      event.preventDefault();
+      try {
+        await api('/articles/' + id + '/comments', {
+          method: 'POST',
+          body: JSON.stringify({ content: $('comment-content').value, parentId: $('comment-parent-id').value ? Number($('comment-parent-id').value) : null })
+        });
+        $('comment-content').value = '';
+        $('comment-parent-id').value = '';
+        alert('评论已提交，等待管理员审核后显示。');
+      } catch (error) {
+        alert(error.message);
+      }
+    });
+    $('qa-btn').addEventListener('click', async function () {
+      try {
+        const data = await api('/ai/qa', { method: 'POST', body: JSON.stringify({ question: $('qa-question').value }) });
+        renderAiResult('qa-output', data);
+      } catch (error) {
+        $('qa-output').textContent = error.message;
+      }
+    });
+    try { await loadDetail(); await loadComments(); } catch (error) { $('article-detail').textContent = error.message; }
+  }
+
+  async function initAdminPage() {
+    const user = await requireAdmin();
+    applyRoleNavigation(user);
+    $('admin-user-summary').textContent = `当前管理员：${userLine(user)}。你拥有文章审核、评论审核、用户封禁、分类标签和 AI 日志管理权限。`;
+
+    async function refresh() {
+      try {
+        show('admin-status', '正在加载后台数据...');
+        const stats = await api('/admin/stats');
+        const users = await api('/admin/users');
+        const articles = await api('/admin/articles');
+        const comments = await api('/admin/comments');
+        const aiLogs = await api('/admin/ai-logs');
+        await loadTaxonomy();
+        const statLabels = {
+          userCount: '用户数', articleCount: '文章数', commentCount: '评论数', categoryCount: '分类数',
+          tagCount: '标签数', totalViews: '总阅读量', aiUsageCount: 'AI 调用次数'
+        };
+        $('admin-stats').innerHTML = Object.keys(statLabels).map(key => `<div class="stat-card"><strong>${statLabels[key]}</strong><br>${stats[key] || 0}</div>`).join('');
+        $('admin-users').innerHTML = users.map(u => `<div class="admin-row">
+          <strong>#${u.id} ${escapeHtml(u.username)}</strong>
+          <span>${escapeHtml(u.nickname)} | ${roleText(u.role)} | <span class="status-pill ${u.banned ? 'danger' : 'success'}">${u.banned ? '已封禁' : '正常'}</span> | 注册时间 ${formatDate(u.createdAt)}</span>
+          <div class="admin-row-actions">
+            <button type="button" class="secondary" data-user-role="${u.id}" data-role="${u.role === 'ADMIN' ? 'USER' : 'ADMIN'}">设为${u.role === 'ADMIN' ? '普通用户' : '管理员'}</button>
+            <button type="button" class="${u.banned ? 'secondary' : 'danger'}" data-user-ban="${u.id}" data-banned="${u.banned ? 'false' : 'true'}">${u.banned ? '解封用户' : '封禁用户'}</button>
+            <button type="button" class="danger" data-delete-user="${u.id}">删除用户</button>
+          </div>
+        </div>`).join('') || '<p class="blog-muted">暂无用户。</p>';
+        $('admin-articles').innerHTML = articles.map(a => `<div class="admin-row">
+          <strong>#${a.id} ${escapeHtml(a.title)}</strong>
+          <span><span class="status-pill ${statusClass(a.status)}">${statusText(a.status)}</span> | 作者 ${escapeHtml(a.authorName)} | 点赞 ${a.likeCount || 0} | 阅读 ${a.viewCount}</span>
+          <small>${escapeHtml(textPreview(a.summary || a.content, 150))}</small>
+          <div class="admin-row-actions">
+            <a class="blog-link-btn" href="/article.html?id=${a.id}">查看</a>
+            <button type="button" data-article-id="${a.id}" data-article-status="PUBLISHED">通过上架</button>
+            <button type="button" class="secondary" data-article-id="${a.id}" data-article-status="PENDING">退回待审</button>
+            <button type="button" class="danger" data-article-id="${a.id}" data-article-status="REJECTED">驳回</button>
+            <button type="button" class="danger" data-admin-delete-article="${a.id}">删除文章</button>
+          </div>
+        </div>`).join('') || '<p class="blog-muted">暂无文章。</p>';
+        $('admin-comments').innerHTML = comments.map(c => `<div class="admin-row">
+          <strong>#${c.id} ${escapeHtml(c.articleTitle || '未知文章')}</strong>
+          <span><span class="status-pill ${statusClass(c.status)}">${statusText(c.status)}</span> | 用户 #${c.userId} ${escapeHtml(c.nickname)} | ${formatDate(c.createdAt)}</span>
+          <p>${escapeHtml(c.content)}</p>
+          <small>${escapeHtml(reviewText(c.aiReviewResult))}</small>
+          <div class="admin-row-actions">
+            <button type="button" data-comment-id="${c.id}" data-comment-status="APPROVED">通过评论</button>
+            <button type="button" class="secondary" data-comment-id="${c.id}" data-comment-status="PENDING">设为待审</button>
+            <button type="button" class="danger" data-comment-id="${c.id}" data-comment-status="REJECTED">下架评论</button>
+            <button type="button" class="danger" data-comment-delete="${c.id}">删除评论</button>
+            <button type="button" class="danger" data-comment-ban-user="${c.userId}">封禁该用户</button>
+          </div>
+        </div>`).join('') || '<p class="blog-muted">暂无评论。</p>';
+        $('admin-categories').innerHTML = state.categories.map(c => `<div class="admin-row"><span>#${c.id} ${escapeHtml(c.name)} - ${escapeHtml(c.description || '')}</span><button type="button" class="danger" data-delete-category="${c.id}">删除分类</button></div>`).join('') || '<p class="blog-muted">暂无分类。</p>';
+        $('admin-tags').innerHTML = state.tags.map(t => `<span class="tag-pill">#${t.id} ${escapeHtml(t.name)} <button type="button" class="danger tiny-btn" data-delete-tag="${t.id}">删除</button></span>`).join('') || '<p class="blog-muted">暂无标签。</p>';
+        $('admin-ai-logs').innerHTML = aiLogs.map(log => `<div class="admin-row">
+          <strong>#${log.id} ${escapeHtml(featureText(log.feature))}</strong>
+          <span>${formatDate(log.createdAt)}</span>
+          <small>输入：${escapeHtml(textPreview(log.prompt, 120))}</small>
+          <small>输出：${escapeHtml(textPreview(log.result, 160))}</small>
+        </div>`).join('') || '<p class="blog-muted">暂无 AI 使用记录。</p>';
+        show('admin-status', '后台数据已刷新');
+      } catch (error) {
+        show('admin-status', error.message);
+      }
+    }
+
+    $('admin-refresh-btn').addEventListener('click', refresh);
+    $('logout-btn').addEventListener('click', function () {
+      clearSession();
+      location.href = '/login.html';
+    });
+    $('admin-users').addEventListener('click', async function (event) {
+      const roleUserId = event.target.getAttribute('data-user-role');
+      const nextRole = event.target.getAttribute('data-role');
+      const banUserId = event.target.getAttribute('data-user-ban');
+      const banned = event.target.getAttribute('data-banned');
+      const deleteUserId = event.target.getAttribute('data-delete-user');
+      try {
+        if (roleUserId && confirm('确认修改该用户角色吗？')) {
+          await api('/admin/users/' + roleUserId + '/role?role=' + encodeURIComponent(nextRole), { method: 'PUT' });
+          await refresh();
+        }
+        if (banUserId && confirm(banned === 'true' ? '确认封禁该用户吗？封禁后不能登录和操作。' : '确认解封该用户吗？')) {
+          await api('/admin/users/' + banUserId + '/ban?banned=' + banned, { method: 'PUT' });
+          await refresh();
+        }
+        if (deleteUserId && confirm('确认删除该用户吗？已有文章或评论的用户不能直接删除。')) {
+          await api('/admin/users/' + deleteUserId, { method: 'DELETE' });
+          await refresh();
+        }
+      } catch (error) { show('admin-status', error.message); }
+    });
+    $('admin-articles').addEventListener('click', async function (event) {
+      const articleId = event.target.getAttribute('data-article-id');
+      const nextStatus = event.target.getAttribute('data-article-status');
+      const deleteId = event.target.getAttribute('data-admin-delete-article');
+      try {
+        if (articleId && nextStatus) {
+          await api('/admin/articles/' + articleId + '/status?status=' + encodeURIComponent(nextStatus), { method: 'PUT' });
+          await refresh();
+        }
+        if (deleteId && confirm('确认删除这篇文章吗？')) {
+          await api('/articles/' + deleteId, { method: 'DELETE' });
+          await refresh();
+        }
+      } catch (error) { show('admin-status', error.message); }
+    });
+    $('admin-comments').addEventListener('click', async function (event) {
+      const commentId = event.target.getAttribute('data-comment-id');
+      const status = event.target.getAttribute('data-comment-status');
+      const del = event.target.getAttribute('data-comment-delete');
+      const banUserId = event.target.getAttribute('data-comment-ban-user');
+      try {
+        if (commentId && status) await api('/admin/comments/' + commentId + '/moderate?status=' + encodeURIComponent(status), { method: 'PUT' });
+        if (del && confirm('确认删除这条评论吗？')) await api('/admin/comments/' + del, { method: 'DELETE' });
+        if (banUserId && confirm('确认封禁这条评论的发布用户吗？')) await api('/admin/users/' + banUserId + '/ban?banned=true', { method: 'PUT' });
+        await refresh();
+      } catch (error) { show('admin-status', error.message); }
+    });
+    $('admin-categories').addEventListener('click', async function (event) {
+      const id = event.target.getAttribute('data-delete-category');
+      if (!id || !confirm('确认删除该分类吗？')) return;
+      try { await api('/categories/' + id, { method: 'DELETE' }); await refresh(); }
+      catch (error) { show('admin-status', error.message); }
+    });
+    $('admin-tags').addEventListener('click', async function (event) {
+      const id = event.target.getAttribute('data-delete-tag');
+      if (!id || !confirm('确认删除该标签吗？')) return;
+      try { await api('/tags/' + id, { method: 'DELETE' }); await refresh(); }
+      catch (error) { show('admin-status', error.message); }
+    });
+    $('category-form').addEventListener('submit', async function (event) {
+      event.preventDefault();
+      try {
+        await api('/categories', { method: 'POST', body: JSON.stringify({ name: $('category-name').value, description: $('category-description').value }) });
+        event.target.reset();
+        await refresh();
+      } catch (error) { show('admin-status', error.message); }
+    });
+    $('tag-form').addEventListener('submit', async function (event) {
+      event.preventDefault();
+      try {
+        await api('/tags', { method: 'POST', body: JSON.stringify({ name: $('tag-name').value }) });
+        event.target.reset();
+        await refresh();
+      } catch (error) { show('admin-status', error.message); }
+    });
+    refresh();
+  }
+
+  document.addEventListener('DOMContentLoaded', function () {
+    applyRoleNavigation(storedUser());
+    if ($('login-page')) initLoginPage();
+    if ($('blog-page')) initBlogPage();
+    if ($('article-page')) initArticlePage();
+    if ($('admin-page')) initAdminPage();
+  });
+}());

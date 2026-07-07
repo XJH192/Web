@@ -1,336 +1,157 @@
-
-<%if (theme.chatbot.enable){%>    
-<div id="ai-chatbot-button" class="ai-chatbot-button">
-
-</div>
-<%}%>
-<!-- AI Chatbot Window -->
-<div id="ai-chatbot-window" class="ai-chatbot-window">
+<% if (theme.chatbot && theme.chatbot.enable) { %>
+<div id="ai-chatbot-button" class="ai-chatbot-button" title="<%= theme.chatbot.options.title %>" aria-label="打开 AI 博客助手"></div>
+<div id="ai-chatbot-window" class="ai-chatbot-window" aria-label="AI 博客助手窗口">
   <div class="ai-chatbot-header">
     <div class="ai-chatbot-title"><%= theme.chatbot.options.title %></div>
-    <button id="ai-chatbot-close" class="ai-chatbot-close">
-      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <line x1="18" y1="6" x2="6" y2="18"></line>
-        <line x1="6" y1="6" x2="18" y2="18"></line>
-      </svg>
-    </button>
+    <button id="ai-chatbot-close" class="ai-chatbot-close" aria-label="关闭">×</button>
   </div>
   <div class="ai-chatbot-content" id="ai-chatbot-content">
-    <!-- Loading Animation -->
     <div id="ai-chatbot-loading" class="ai-chatbot-loading">
       <div class="ai-chatbot-loading-spinner"></div>
-      <div class="ai-chatbot-loading-text">如果加载时间过长，可尝试打开系统代理</div>
+      <div class="ai-chatbot-loading-text">正在载入助手...</div>
     </div>
-    <!-- iframe will be dynamically loaded here when chatbot is opened -->
   </div>
 </div>
 
 <script>
-  // Get elements
-  const chatbotButton = document.getElementById('ai-chatbot-button');
-  const chatbotWindow = document.getElementById('ai-chatbot-window');
-  const chatbotClose = document.getElementById('ai-chatbot-close');
-  const chatbotContent = document.getElementById('ai-chatbot-content');
-  const chatbotLoading = document.getElementById('ai-chatbot-loading');
-  let iframeLoaded = false;
-  let isProcessing = false;
+  (function () {
+    const chatbotButton = document.getElementById('ai-chatbot-button');
+    const chatbotWindow = document.getElementById('ai-chatbot-window');
+    const chatbotClose = document.getElementById('ai-chatbot-close');
+    const chatbotContent = document.getElementById('ai-chatbot-content');
+    const chatbotLoading = document.getElementById('ai-chatbot-loading');
+    let iframeLoaded = false;
 
-  // Toggle chatbot window
-  function toggleChatbot() {
-    if (isProcessing) return;
-    isProcessing = true;
-
-    const isOpening = !chatbotWindow.classList.contains('ai-chatbot-window-open');
-    chatbotWindow.classList.toggle('ai-chatbot-window-open');
-    
-    // Handle background scrolling
-    if (isOpening) {
-      // Disable background scrolling when opening chatbot
-      document.body.style.overflow = 'hidden';
-      document.body.style.touchAction = 'none';
-    } else {
-      // Enable background scrolling when closing chatbot
+    function closeChatbot() {
+      chatbotWindow.classList.remove('ai-chatbot-window-open');
       document.body.style.overflow = '';
       document.body.style.touchAction = '';
     }
-    
-    // Load iframe only when opening the chatbot for the first time
-    if (isOpening && !iframeLoaded) {
-      // Wait for the window to be fully visible before loading iframe
-      setTimeout(() => {
+
+    function openChatbot() {
+      chatbotWindow.classList.add('ai-chatbot-window-open');
+      document.body.style.overflow = 'hidden';
+      document.body.style.touchAction = 'none';
+
+      if (!iframeLoaded) {
         const iframe = document.createElement('iframe');
         iframe.src = '<%= theme.chatbot.options.chat %>';
         iframe.style.cssText = '<%= theme.chatbot.options.style %>';
         iframe.frameBorder = '0';
         iframe.allow = 'microphone';
-        
-        // Set timeout to hide loading animation after 5 seconds
-        const loadingTimeout = setTimeout(() => {
-          if (chatbotLoading) {
-            chatbotLoading.style.display = 'none';
-          }
-        }, 5000);
-        
-        // Hide loading animation when iframe is loaded (if before 5 seconds)
-        iframe.onload = () => {
-          clearTimeout(loadingTimeout);
-          if (chatbotLoading) {
-            chatbotLoading.style.display = 'none';
-          }
+        iframe.title = '<%= theme.chatbot.options.title %>';
+        iframe.onload = function () {
+          chatbotLoading.style.display = 'none';
         };
-        
         chatbotContent.appendChild(iframe);
         iframeLoaded = true;
-      }, 300); // Wait for CSS transition to complete
+      }
     }
 
-    // Reset processing flag after a short delay
-    setTimeout(() => {
-      isProcessing = false;
-    }, 300);
-  }
-
-  // Add event listeners for both click and touch events
-  if (chatbotButton) {
-    chatbotButton.addEventListener('click', toggleChatbot);
-    chatbotButton.addEventListener('touchstart', (e) => {
-      e.preventDefault();
-      toggleChatbot();
-    }, { passive: false });
-  }
-
-  // Close chatbot window
-  function closeChatbot() {
-    if (chatbotWindow) {
-      chatbotWindow.classList.remove('ai-chatbot-window-open');
-      // Enable background scrolling when closing chatbot
-      document.body.style.overflow = '';
-      document.body.style.touchAction = '';
-    }
-  }
-
-  if (chatbotClose) {
+    chatbotButton.addEventListener('click', function () {
+      if (chatbotWindow.classList.contains('ai-chatbot-window-open')) closeChatbot();
+      else openChatbot();
+    });
     chatbotClose.addEventListener('click', closeChatbot);
-    chatbotClose.addEventListener('touchstart', (e) => {
-      e.stopPropagation();
-      closeChatbot();
-    }, { passive: true });
-  }
-
-  // Close chatbot window when clicking outside
-  window.addEventListener('click', (e) => {
-    if (e.target === chatbotWindow) {
-      chatbotWindow.classList.remove('ai-chatbot-window-open');
-      // Enable background scrolling when closing chatbot
-      document.body.style.overflow = '';
-      document.body.style.touchAction = '';
-    }
-  });
-
-  // Prevent scroll propagation from chatbot window to background
-  if (chatbotWindow) {
-    // Touch events for mobile
-    chatbotWindow.addEventListener('touchstart', (e) => {
-      e.stopPropagation();
-    }, { passive: true });
-    
-    chatbotWindow.addEventListener('touchmove', (e) => {
-      e.stopPropagation();
-    }, { passive: true });
-    
-    chatbotWindow.addEventListener('touchend', (e) => {
-      e.stopPropagation();
-    }, { passive: true });
-    
-    // Mouse events for desktop
-    chatbotWindow.addEventListener('wheel', (e) => {
-      e.stopPropagation();
-    }, { passive: true });
-  }
+    document.addEventListener('keydown', function (event) {
+      if (event.key === 'Escape') closeChatbot();
+    });
+  }());
 </script>
 
 <style>
-  /* Chatbot Button */
   @keyframes ai-pulse {
-    0% {
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15), 0 0 0 0 var(--color-primary);
-      transform: scale(1);
-    }
-    50% {
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15), 0 0 0 15px var(--color-primary-bg);
-      transform: scale(1.05);
-    }
-    100% {
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15), 0 0 0 0 var(--color-primary-bg);
-      transform: scale(1);
-    }
+    0% { box-shadow: 0 3px 8px rgba(87,48,31,.18), 0 0 0 0 rgba(230,114,73,.25); transform: scale(1); }
+    50% { box-shadow: 0 3px 8px rgba(87,48,31,.18), 0 0 0 10px rgba(230,114,73,.12); transform: scale(1.025); }
+    100% { box-shadow: 0 3px 8px rgba(87,48,31,.18), 0 0 0 0 rgba(230,114,73,0); transform: scale(1); }
   }
-
-  @keyframes ai-glow {
-    0% {
-      filter: drop-shadow(0 0 3px var(--color-primary));
-    }
-    50% {
-      filter: drop-shadow(0 0 8px var(--color-primary));
-    }
-    100% {
-      filter: drop-shadow(0 0 3px var(--color-primary));
-    }
-  }
-
   .ai-chatbot-button {
     position: fixed;
     bottom: 2rem;
     right: 2rem;
-    width: 6rem;
-    height: 6rem;
-    background-color: var(--color-primary);
+    width: 5.2rem;
+    height: 5.2rem;
+    border: 3px solid rgba(255,255,255,.9);
+    background-color: #e67249;
     background-image: var(--chat);
     background-size: 100% 100%;
     border-radius: 50%;
-    display: flex;
-    justify-content: center;
-    align-items: center;
     cursor: pointer;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-    transition: all 0.3s ease;
+    box-shadow: 0 3px 8px rgba(87,48,31,.18);
     z-index: 9998;
-    color: white;
-    font-size: 1.5rem;
-    animation: ai-pulse 2.5s infinite, ai-glow 3s infinite;
+    animation: ai-pulse 2.8s infinite;
   }
-
-  .ai-chatbot-button:hover {
-    transform: scale(1.1);
-    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
-  }
-
-  /* Chatbot Window */
   .ai-chatbot-window {
     position: fixed;
-    bottom: 10rem;
+    bottom: 8.6rem;
     right: 2rem;
-    width: 24rem;
-    height: 45rem;
-    background-color: var(--color-primary);
-    border-radius: 12px;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+    width: 23.5rem;
+    height: 39rem;
+    max-width: calc(100vw - 2rem);
+    max-height: calc(100vh - 4rem);
+    border: 1px solid rgba(230, 114, 73, .24);
+    border-radius: 14px;
+    background: rgba(255, 250, 246, .96);
+    box-shadow: 0 2px 8px rgba(87,48,31,.18);
     z-index: 9999;
     opacity: 0;
     visibility: hidden;
-    transform: translateY(20px);
-    transition: opacity 0.3s ease, visibility 0.3s ease, transform 0.3s ease;
+    transform: translateY(14px);
+    transition: opacity .2s ease, transform .2s ease, visibility .2s ease;
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    -webkit-backface-visibility: hidden;
-    backface-visibility: hidden;
-    -webkit-transform-style: preserve-3d;
-    transform-style: preserve-3d;
   }
-
-  .ai-chatbot-window-open {
-    opacity: 1;
-    visibility: visible;
-    transform: translateY(0);
-  }
-
-  /* Chatbot Header */
+  .ai-chatbot-window-open { opacity: 1; visibility: visible; transform: translateY(0); }
   .ai-chatbot-header {
-    padding: 0.5rem;
-    background-color: var(--color-primary);
-    border-bottom: 1px solid var(--color-primary);
-    border-radius: 12px 12px 0 0;
+    padding: .7rem .9rem;
+    background: #e67249;
+    color: #fff;
     display: flex;
-    justify-content: space-between;
     align-items: center;
+    justify-content: space-between;
   }
-
-  .ai-chatbot-title {
-    font-size: 1rem;
-    font-weight: 600;
-    color: #fff;
-  }
-
+  .ai-chatbot-title { color: #fff; font-weight: 750; }
   .ai-chatbot-close {
-    background: none;
-    border: none;
-    cursor: pointer;
+    width: 30px;
+    height: 30px;
+    border: 0;
+    border-radius: 8px;
+    background: rgba(255,255,255,.14);
     color: #fff;
-    padding: 0.25rem;
-    border-radius: 4px;
-    transition: background-color 0.2s ease;
     cursor: pointer;
+    font-size: 20px;
+    line-height: 1;
   }
-
-  .ai-chatbot-close:hover {
-   
-  }
-
-  /* Chatbot Content */
-  .ai-chatbot-content {
-    flex: 1;
-    overflow: hidden;
-    position: relative;
-    background-color: var(--color-card);
-  }
-
-  /* Loading Animation */
+  .ai-chatbot-close:hover { background: rgba(255,255,255,.22); }
+  .ai-chatbot-content { flex: 1; position: relative; overflow: hidden; }
   .ai-chatbot-loading {
     position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    background-color: var(--color-card);
-    z-index: 10;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    align-content: center;
+    gap: 12px;
+    color: #4b382f;
+    background: rgba(255, 250, 246, .96);
   }
-
   .ai-chatbot-loading-spinner {
-    width: 50px;
-    height: 50px;
-    border: 4px solid rgba(255, 255, 255, 0.3);
+    width: 38px;
+    height: 38px;
+    border: 3px solid rgba(230,114,73,.18);
+    border-top-color: #e67249;
     border-radius: 50%;
-    border-top-color: var(--color-text-1);
     animation: ai-spin 1s linear infinite;
-    margin-bottom: 1rem;
   }
-
-  @keyframes ai-spin {
-    to { transform: rotate(360deg); }
-  }
-
-  .ai-chatbot-loading-text {
-    color: var(--color-text-1);
-    font-size: 0.9rem;
-    text-align: center;
-    padding: 0 1rem;
-    line-height: 1.5;
-  }
-
-  /* Responsive Design */
+  @keyframes ai-spin { to { transform: rotate(360deg); } }
   @media (max-width: 768px) {
-    .ai-chatbot-button {
-      width: 5rem;
-      height: 5rem;
-      bottom: 10rem;
-      right: 1rem;
-      /* 保持动画效果在移动设备上 */
-      animation: ai-pulse 2.5s infinite, ai-glow 3s infinite;
-    }
-
-    .ai-chatbot-window {
-      width: 100vw;
-      height: 100vh;
-      top: 0;
-      left: 0;
-      bottom: 0;
-      right: 0;
-      border-radius: 0;
-    }
+    .ai-chatbot-button { width: 4.6rem; height: 4.6rem; right: 1rem; bottom: 6.5rem; }
+    .ai-chatbot-window { inset: 0; width: 100vw; height: 100vh; max-width: none; max-height: none; border-radius: 0; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .ai-chatbot-button { animation: none; }
+    .ai-chatbot-window { transition: none; }
+    .ai-chatbot-loading-spinner { animation: none; }
   }
 </style>
+<% } %>

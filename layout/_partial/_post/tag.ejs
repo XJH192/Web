@@ -1,11 +1,10 @@
-<div class="nexmoe-post-meta nexmoe-rainbow">
-   
+﻿<div class="nexmoe-post-meta nexmoe-rainbow">
     <% if (page.tags && page.tags.length){ %>
-        <%- list_tags(page.tags, {
-            show_count: false,
-            class: 'nexmoefont icon-tag-fill ',
-            style: 'none',
-            separator: ' '
-        }) %>
+        <%
+            const tags = page.tags.toArray ? page.tags.toArray() : page.tags;
+            tags.forEach(function(tag) {
+        %>
+            <a class="nexmoefont icon-tag-fill" href="<%- url_for(tag.path) %>"><%= tag.name %></a>
+        <% }) %>
     <% } %>
 </div>

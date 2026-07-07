@@ -1,5 +1,4 @@
-
-function cssAutoVersionHelper(...args) {
+﻿function cssAutoVersionHelper(...args) {
     return args.reduce((result, path, i) => {
         if (i) result += '\n';
 

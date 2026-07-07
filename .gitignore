@@ -1,13 +1,18 @@
 .DS_Store
 
 *.log
+*.tmp
 
-
-
-node_modules
-
-.idea
-
+node_modules/
+.idea/
 .directory
 
-WIKI/.vuepress/dist
+WIKI/.vuepress/dist/
+public/
+db.json
+demo-site/public/
+demo-site/db.json
+blog-system/backend/target/
+blog-system/backend/.m2-repository/
+tmp/
+.impeccable/

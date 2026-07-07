@@ -12,8 +12,8 @@ console.info(`===============================================
    |_|\\__,_|_| |_|\\__, |\\__, |\\__,_/_/\\_|_|\\__,_|_| |_|
                   |___/ |___/                      
 
-  Welcome to use Hexo Theme Tangyuxian!
-  URL_ADDRESS  https://github.com/tangyuxian/hexo-theme-tangyuxian    
+  Welcome to use Hexo Theme xjh!
+  URL_ADDRESS  本地 xjh 博客系统    
 
 =====================================================`);
 

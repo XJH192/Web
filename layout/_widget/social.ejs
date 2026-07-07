@@ -1,18 +1,162 @@
 <div class="nexmoe-widget-wrap">
-	<div class="nexmoe-widget nexmoe-social">
-		<% for (name in options.social) { %><a
-			class="mdui-ripple"
-			href="<%- url_for(options.social[name][0]) -%>"
-			target="_blank"
-			mdui-tooltip="{content: '<%= name %>'}"
-			style="
-				color: <%= options.social[name][2] %>;
-				background-color: <%= options.social[name][3] %>;
-			"
-		>
-			<i
-				class="nexmoefont <% if (options.social[name][1]){ %><%= options.social[name][1] %><%} else{ %><%= 'icon-unorderedlist' %><% } %>"
-			></i> </a
-		><% } %>
-	</div>
+  <div class="nexmoe-widget nexmoe-social">
+    <% for (name in options.social) { const href = options.social[name][0]; const isMail = String(href).indexOf('mailto:') === 0; %><a
+      class="mdui-ripple <%= isMail ? 'xjh-mail-link' : '' %>"
+      href="<%- url_for(href) -%>"
+      target="<%= isMail ? '_self' : '_blank' %>"
+      data-email="<%= isMail ? String(href).replace('mailto:', '') : '' %>"
+      mdui-tooltip="{content: '<%= name %>'}"
+      style="
+        color: <%= options.social[name][2] %>;
+        background-color: <%= options.social[name][3] %>;
+      "
+    >
+      <i class="nexmoefont <% if (options.social[name][1]){ %><%= options.social[name][1] %><%} else{ %><%= 'icon-unorderedlist' %><% } %>"></i>
+    </a><% } %>
+  </div>
 </div>
+<div id="xjh-email-modal" class="xjh-email-modal" aria-hidden="true">
+  <div class="xjh-email-dialog" role="dialog" aria-modal="true" aria-labelledby="xjh-email-title">
+    <button type="button" class="xjh-email-close" aria-label="关闭邮箱弹窗">×</button>
+    <span class="xjh-email-label">邮箱联系</span>
+    <h3 id="xjh-email-title">我的邮箱</h3>
+    <p>复制或记录下面的邮箱即可联系我。</p>
+    <strong id="xjh-email-value">706972112@qq.com</strong>
+    <div class="xjh-email-actions">
+      <button type="button" id="xjh-email-copy">复制邮箱</button>
+      <a id="xjh-email-open" href="mailto:706972112@qq.com">打开邮件</a>
+    </div>
+  </div>
+</div>
+<script>
+  (function () {
+    const modal = document.getElementById('xjh-email-modal');
+    if (!modal) return;
+    const value = document.getElementById('xjh-email-value');
+    const copy = document.getElementById('xjh-email-copy');
+    const open = document.getElementById('xjh-email-open');
+    const close = modal.querySelector('.xjh-email-close');
+
+    function show(email) {
+      const finalEmail = email || '706972112@qq.com';
+      value.textContent = finalEmail;
+      open.href = 'mailto:' + finalEmail;
+      modal.classList.add('is-visible');
+      modal.setAttribute('aria-hidden', 'false');
+      document.body.style.overflow = 'hidden';
+      close.focus();
+    }
+    function hide() {
+      modal.classList.remove('is-visible');
+      modal.setAttribute('aria-hidden', 'true');
+      document.body.style.overflow = '';
+    }
+
+    document.addEventListener('click', function (event) {
+      const link = event.target.closest('.xjh-mail-link');
+      if (link) {
+        event.preventDefault();
+        show(link.getAttribute('data-email'));
+      }
+      if (event.target === modal || event.target.closest('.xjh-email-close')) hide();
+    });
+    document.addEventListener('keydown', function (event) {
+      if (event.key === 'Escape' && modal.classList.contains('is-visible')) hide();
+    });
+    if (copy) {
+      copy.addEventListener('click', function () {
+        const email = value.textContent;
+        if (navigator.clipboard) navigator.clipboard.writeText(email);
+        copy.textContent = '已复制';
+        setTimeout(function () { copy.textContent = '复制邮箱'; }, 1400);
+      });
+    }
+  }());
+</script>
+<style>
+  .xjh-email-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 10000;
+    display: grid;
+    place-items: center;
+    padding: 20px;
+    background: rgba(47, 36, 31, .34);
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity .18s ease, visibility .18s ease;
+  }
+  .xjh-email-modal.is-visible { opacity: 1; visibility: visible; }
+  .xjh-email-dialog {
+    position: relative;
+    width: min(360px, 100%);
+    border: 1px solid rgba(230, 114, 73, .24);
+    border-radius: 14px;
+    padding: 22px;
+    background: rgba(255, 250, 246, .98);
+    color: #2f241f;
+    box-shadow: 0 2px 8px rgba(87, 48, 31, .18);
+    transform: translateY(8px);
+    transition: transform .18s ease;
+  }
+  .xjh-email-modal.is-visible .xjh-email-dialog { transform: translateY(0); }
+  .xjh-email-close {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    width: 30px;
+    height: 30px;
+    border: 0;
+    border-radius: 9px;
+    background: rgba(230, 114, 73, .12);
+    color: #c95531;
+    cursor: pointer;
+    font-size: 20px;
+    line-height: 1;
+  }
+  .xjh-email-label {
+    display: inline-flex;
+    margin-bottom: 8px;
+    border-radius: 999px;
+    padding: 4px 9px;
+    background: rgba(230, 114, 73, .12);
+    color: #c95531;
+    font-size: 12px;
+    font-weight: 750;
+  }
+  .xjh-email-dialog h3 { margin: 0; color: #2f241f; font-size: 22px; line-height: 1.25; }
+  .xjh-email-dialog p { margin: 8px 0 14px; color: #665247; line-height: 1.7; }
+  .xjh-email-dialog strong {
+    display: block;
+    border: 1px solid rgba(230, 114, 73, .2);
+    border-radius: 10px;
+    padding: 12px;
+    background: #fff;
+    color: #e67249;
+    font-size: 18px;
+    word-break: break-all;
+  }
+  .xjh-email-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
+  .xjh-email-actions button,
+  .xjh-email-actions a {
+    min-height: 38px;
+    border: 0;
+    border-radius: 9px;
+    padding: 0 13px;
+    background: #e67249;
+    color: #fff;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font: inherit;
+    font-size: 14px;
+    font-weight: 750;
+    text-decoration: none;
+  }
+  .xjh-email-actions a { background: rgba(230, 114, 73, .12); color: #c95531; }
+  @media (prefers-reduced-motion: reduce) {
+    .xjh-email-modal,
+    .xjh-email-dialog { transition: none; }
+  }
+</style>
