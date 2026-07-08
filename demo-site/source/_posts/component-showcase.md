@@ -6,10 +6,10 @@ tags:
   - AI
   - Hexo
 categories:
-  - 系统说明
-cover: /images/post/ui.jpg
-coverWidth: 1200
-coverHeight: 320
+  - 项目指南
+cover: /images/background/zhuti.jpg
+coverWidth: 1920
+coverHeight: 520
 author: 博客系统
 ---
 

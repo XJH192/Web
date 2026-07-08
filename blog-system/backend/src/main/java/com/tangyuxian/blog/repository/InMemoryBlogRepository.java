@@ -41,11 +41,14 @@ public class InMemoryBlogRepository {
     }
 
     private void migrateIfNeeded() {
+        tryExecute("ALTER TABLE users ADD COLUMN email VARCHAR(120) DEFAULT NULL COMMENT '邮箱' AFTER nickname");
         tryExecute("ALTER TABLE users ADD COLUMN banned TINYINT(1) NOT NULL DEFAULT 0 COMMENT '是否封禁' AFTER role");
         tryExecute("ALTER TABLE articles ADD COLUMN like_count INT NOT NULL DEFAULT 0 COMMENT '点赞数' AFTER view_count");
         tryExecute("ALTER TABLE articles ADD COLUMN attachments_json LONGTEXT NULL COMMENT '文章附件JSON，保存图片/PPT等上传文件' AFTER content");
+        tryExecute("CREATE TABLE IF NOT EXISTS article_attachments (id BIGINT NOT NULL AUTO_INCREMENT, article_id BIGINT NOT NULL, name VARCHAR(255) NOT NULL, file_type VARCHAR(120) DEFAULT NULL, file_size BIGINT NOT NULL DEFAULT 0, data_url LONGTEXT NOT NULL, created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY(id), KEY idx_article_attachments_article(article_id), CONSTRAINT fk_article_attachments_article FOREIGN KEY(article_id) REFERENCES articles(id) ON DELETE CASCADE) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='文章附件表'");
         tryExecute("CREATE TABLE IF NOT EXISTS notifications (id BIGINT NOT NULL AUTO_INCREMENT, user_id BIGINT NOT NULL, type VARCHAR(40) NOT NULL, title VARCHAR(120) NOT NULL, content VARCHAR(500) NOT NULL, link VARCHAR(255) DEFAULT NULL, read_flag TINYINT(1) NOT NULL DEFAULT 0, created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY(id), KEY idx_notifications_user_read(user_id, read_flag), KEY idx_notifications_created(created_at), CONSTRAINT fk_notifications_user FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='通知消息表'");
         tryExecute("CREATE TABLE IF NOT EXISTS article_likes (article_id BIGINT NOT NULL COMMENT '文章ID', user_id BIGINT NOT NULL COMMENT '点赞用户ID', created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '点赞时间', PRIMARY KEY(article_id, user_id), KEY idx_article_likes_user(user_id), CONSTRAINT fk_article_likes_article FOREIGN KEY(article_id) REFERENCES articles(id) ON DELETE CASCADE, CONSTRAINT fk_article_likes_user FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='文章点赞表'");
+        tryExecute("ALTER TABLE ai_usage_logs ADD COLUMN thinking TEXT NULL COMMENT 'AI思考过程或处理摘要' AFTER prompt");
     }
 
     private void tryExecute(String sql) {
@@ -55,13 +58,13 @@ public class InMemoryBlogRepository {
     public User saveUser(User user) {
         if (user.getId() == null) {
             Long id = insertAndReturnId(
-                    "INSERT INTO users(username, password, nickname, role, banned) VALUES (?, ?, ?, ?, ?)",
-                    user.getUsername(), user.getPassword(), user.getNickname(), user.getRole().name(), user.isBanned()
+                    "INSERT INTO users(username, password, nickname, email, role, banned) VALUES (?, ?, ?, ?, ?, ?)",
+                    user.getUsername(), user.getPassword(), user.getNickname(), user.getEmail(), user.getRole().name(), user.isBanned()
             );
             return findUserById(id);
         }
-        jdbc.update("UPDATE users SET username=?, password=?, nickname=?, role=?, banned=? WHERE id=?",
-                user.getUsername(), user.getPassword(), user.getNickname(), user.getRole().name(), user.isBanned(), user.getId());
+        jdbc.update("UPDATE users SET username=?, password=?, nickname=?, email=?, role=?, banned=? WHERE id=?",
+                user.getUsername(), user.getPassword(), user.getNickname(), user.getEmail(), user.getRole().name(), user.isBanned(), user.getId());
         return findUserById(user.getId());
     }
 
@@ -96,6 +99,10 @@ public class InMemoryBlogRepository {
 
     public Category findCategoryById(Long id) {
         return queryOne("SELECT * FROM categories WHERE id=?", categoryMapper(), id);
+    }
+
+    public Category findCategoryByName(String name) {
+        return queryOne("SELECT * FROM categories WHERE name=?", categoryMapper(), name);
     }
 
     public List<Category> listCategories() {
@@ -146,6 +153,7 @@ public class InMemoryBlogRepository {
                     article.getContent(), attachmentsJson(article.getAttachments()), status, article.getViewCount(), article.getLikeCount(), article.getId());
         }
         replaceArticleTags(article.getId(), article.getTagIds());
+        replaceArticleAttachments(article.getId(), article.getAttachments());
         return findArticleById(article.getId());
     }
 
@@ -191,14 +199,14 @@ public class InMemoryBlogRepository {
     public AiUsageLog saveAiUsageLog(AiUsageLog log) {
         if (log.getId() == null) {
             Long id = insertAndReturnId(
-                    "INSERT INTO ai_usage_logs(user_id, feature, prompt, result) VALUES (?, ?, ?, ?)",
-                    log.getUserId(), log.getFeature(), log.getPrompt(), log.getResult()
+                    "INSERT INTO ai_usage_logs(user_id, feature, prompt, thinking, result) VALUES (?, ?, ?, ?, ?)",
+                    log.getUserId(), log.getFeature(), log.getPrompt(), log.getThinking(), log.getResult()
             );
             log.setId(id);
             return findAiUsageLogById(id);
         }
-        jdbc.update("UPDATE ai_usage_logs SET user_id=?, feature=?, prompt=?, result=? WHERE id=?",
-                log.getUserId(), log.getFeature(), log.getPrompt(), log.getResult(), log.getId());
+        jdbc.update("UPDATE ai_usage_logs SET user_id=?, feature=?, prompt=?, thinking=?, result=? WHERE id=?",
+                log.getUserId(), log.getFeature(), log.getPrompt(), log.getThinking(), log.getResult(), log.getId());
         return findAiUsageLogById(log.getId());
     }
 
@@ -281,6 +289,16 @@ public class InMemoryBlogRepository {
         }
     }
 
+    private void replaceArticleAttachments(Long articleId, List<ArticleAttachment> attachments) {
+        try { jdbc.update("DELETE FROM article_attachments WHERE article_id=?", articleId); } catch (Exception ignored) { return; }
+        if (attachments == null) return;
+        for (ArticleAttachment item : attachments) {
+            if (item == null || item.getName() == null || item.getDataUrl() == null) continue;
+            jdbc.update("INSERT INTO article_attachments(article_id, name, file_type, file_size, data_url) VALUES (?, ?, ?, ?, ?)",
+                    articleId, item.getName(), item.getType(), item.getSize(), item.getDataUrl());
+        }
+    }
+
     private String articleSelectSql() {
         return "SELECT a.*, u.nickname AS author_name, c.name AS category_name " +
                 "FROM articles a " +
@@ -307,6 +325,7 @@ public class InMemoryBlogRepository {
                         Role.valueOf(rs.getString("role")),
                         time(rs, "created_at")
                 );
+                user.setEmail(stringColumn(rs, "email"));
                 user.setBanned(booleanColumn(rs, "banned"));
                 return user;
             }
@@ -344,7 +363,7 @@ public class InMemoryBlogRepository {
                 article.setTitle(rs.getString("title"));
                 article.setSummary(rs.getString("summary"));
                 article.setContent(rs.getString("content"));
-                article.setAttachments(parseAttachments(stringColumn(rs, "attachments_json")));
+                article.setAttachments(mergedAttachments(article.getId(), stringColumn(rs, "attachments_json")));
                 article.setStatus(ArticleStatus.valueOf(rs.getString("status")));
                 article.setViewCount(rs.getInt("view_count"));
                 article.setLikeCount(intColumn(rs, "like_count"));
@@ -387,6 +406,7 @@ public class InMemoryBlogRepository {
                         nullableLong(rs, "user_id"),
                         rs.getString("feature"),
                         rs.getString("prompt"),
+                        stringColumn(rs, "thinking"),
                         rs.getString("result"),
                         time(rs, "created_at")
                 );
@@ -428,6 +448,25 @@ public class InMemoryBlogRepository {
                 return rs.getString("name");
             }
         }, articleId);
+    }
+
+    private List<ArticleAttachment> listArticleAttachments(Long articleId) {
+        try {
+            return jdbc.query("SELECT name, file_type, file_size, data_url FROM article_attachments WHERE article_id=? ORDER BY id", new RowMapper<ArticleAttachment>() {
+                @Override
+                public ArticleAttachment mapRow(ResultSet rs, int rowNum) throws SQLException {
+                    return new ArticleAttachment(rs.getString("name"), rs.getString("file_type"), rs.getLong("file_size"), rs.getString("data_url"));
+                }
+            }, articleId);
+        } catch (Exception ex) {
+            return new ArrayList<ArticleAttachment>();
+        }
+    }
+
+    private List<ArticleAttachment> mergedAttachments(Long articleId, String json) {
+        List<ArticleAttachment> rows = listArticleAttachments(articleId);
+        if (!rows.isEmpty()) return rows;
+        return parseAttachments(json);
     }
 
     private String attachmentsJson(List<ArticleAttachment> attachments) {

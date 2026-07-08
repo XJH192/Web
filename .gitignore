@@ -16,3 +16,4 @@ blog-system/backend/target/
 blog-system/backend/.m2-repository/
 tmp/
 .impeccable/
+.env.local

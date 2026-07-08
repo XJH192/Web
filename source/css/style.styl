@@ -181,40 +181,47 @@ body.mdui-drawer-body-left {
 
 .nexmoe-toc {
     text-transform: none;
-    width: 420px;
+    width: 380px;
     max-width: calc(100vw - 40px);
     white-space: normal;
     text-align: left;
-    box-shadow: 0 0 1rem var(--color-shadow);
-    background-color: var(--color-card);
+    border: 1px solid rgba(178, 120, 96, .22);
+    background: rgba(255, 252, 249, .98);
+    color: #342721;
     position: absolute;
     bottom: 0px;
     right: 0;
-    border-radius: 16px;
-    font-size: 16px;
+    border-radius: 14px;
+    font-size: 15px;
     display: none;
+    box-shadow: 0 10px 24px rgba(74, 52, 42, .14);
+    overflow: hidden;
 }
 
-.nexmoe-tool .catalog:hover .nexmoe-toc {
+.nexmoe-tool .catalog:hover .nexmoe-toc,
+.nexmoe-tool .catalog:focus-within .nexmoe-toc {
     display: block;
 }
 
 .nexmoe-toc a {
-    transition: all 0.2s ease-in-out;
-    border-radius: 8px;
-    padding: 0.4rem 0.8rem;
+    transition: background 0.18s ease, color 0.18s ease;
+    border-radius: 9px;
+    padding: 0.48rem 0.72rem;
     display: block;
-    color: var(--color-text-2);
+    color: #4b3d37;
+    line-height: 1.45;
+    word-break: break-word;
 }
 
-.nexmoe-toc a:hover {
-    color: #fff;
-    background-color: var(--color-primary);
-    box-shadow: 0 1px 10px var(--color-primary);
+.nexmoe-toc a:hover,
+.nexmoe-toc a:focus-visible {
+    color: #7d4d3e;
+    background-color: rgba(217, 130, 103, .14);
+    outline: none;
 }
 
 .nexmoe-toc ol {
-    padding-left: 1em;
+    padding-left: 0.85em;
     margin: 0;
 }
 
@@ -224,10 +231,19 @@ body.mdui-drawer-body-left {
 
 .nexmoe-toc > ol {
     margin: 0;
-    padding: 0;
-    max-height: calc(100vh - 155px);
-    overflow-y: scroll;
-    padding: 20px;
+    padding: 14px;
+    max-height: 460px;
+    max-height: calc(100vh - 150px);
+    overflow-y: auto;
+}
+
+.nexmoe-toc > ol::-webkit-scrollbar {
+    width: 6px;
+}
+
+.nexmoe-toc > ol::-webkit-scrollbar-thumb {
+    background: rgba(155, 93, 76, .28);
+    border-radius: 999px;
 }
 
 .nexmoe-toc * {

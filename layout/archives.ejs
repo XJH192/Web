@@ -1,62 +1,192 @@
-<section class="nexmoe-archives">
-    <div class="tagcloud nexmoe-rainbow">
-        <%- list_tags({
-            show_count: true,
-            style: "unordered list",
-            class: "mdui-ripple ",
-            separator: ""
-        }) %>
+<section class="xjh-archive-page">
+  <header class="archive-hero-panel">
+    <div>
+      <p class="archive-kicker">小埋的文章仓库</p>
+      <h1>归档时间线</h1>
+      <p>这里把 Hexo 静态文章和数据库已上架博客放在同一条时间线上。管理员审核通过后，系统归档会自动同步更新。</p>
     </div>
+    <div class="archive-stat-grid">
+      <span><strong><%= site.posts.length %></strong>Hexo 文章</span>
+      <span><strong><%= site.categories.length %></strong>分类</span>
+      <span><strong><%= site.tags.length %></strong>标签</span>
+    </div>
+  </header>
 
-    <div class="categories nexmoe-rainbow-fill">
-        <% site.categories.sort('name').map(function(category){  %>
-            <% let coverx = "" %>
-            <% category.posts.sort('-date',-1).map(function(post){  %>
-               <% if(post.tags && theme.tagsCovers && post.tags.length>0 && coverx===""){
-                   post.tags.some(tag => {
-                       const tagName = tag.name || '';
-                       coverx = theme.tagsCovers[tagName] || "";
-                       return coverx!=="";
-                   });
-               }
-               if(post.cover!==undefined && coverx===""){
-                   coverx = post.cover;
-               }
-               %>
-            <% }) %>
+  <section class="archive-tools-panel" aria-label="归档筛选">
+    <input id="archive-search" placeholder="搜索标题、分类或标签">
+    <select id="archive-year-filter">
+      <option value="">全部年份</option>
+      <%
+        const archiveYears = {};
+        site.posts.each(function(post){ archiveYears[post.date.year()] = true; });
+        Object.keys(archiveYears).sort((a, b) => b - a).forEach(function(year){
+      %>
+        <option value="<%= year %>" <%= String(page.year || '') === String(year) ? 'selected' : '' %>><%= year %> 年</option>
+      <% }) %>
+    </select>
+    <a class="archive-tool-link" href="#xjh-db-archives">查看系统上架博客</a>
+  </section>
 
-            <a class="mdui-ripple" href="<%- url_for(category.path) %>">
-                <div class="bg" style="background-image:url(<%= coverx %>)"></div>
-                <h1><%= category.name %></h1>
-            </a>
+  <section class="archive-cloud-panel">
+    <div>
+      <h2>文章分类</h2>
+      <div class="archive-category-grid">
+        <% site.categories.sort('name').each(function(category){ %>
+          <a href="<%- url_for(category.path) %>"><strong><%= category.name %></strong><span><%= category.posts.length %> 篇</span></a>
         <% }) %>
+      </div>
     </div>
-    
-    <article>
-        <% // 参考：https://github.com/SukkaW/hexo-theme-suka/blob/master/layout/_pages/archive.ejs %>
-        <% function buildArchive(posts, year) { %>
-            <h2><%= year %></h2>
-            <ul>
-            <% posts.sort('date',-1).each(post => { %>
-                <li><span><%= date(post.date, 'MM-DD') %></span><a href="<%- url_for(post.path) %>" ><%- post.title %></a></li>
-            <% }) %>
-            </ul>
-        <% } %>
+    <div>
+      <h2>标签云</h2>
+      <div class="archive-tag-cloud">
+        <%- list_tags({ show_count: true, style: 'unordered list', separator: '' }) %>
+      </div>
+    </div>
+  </section>
 
-        <%
-        if (!page.year) {
-            let years = {};
-            let allpost = page.tag ? site.tags.findOne({name: page.tag}).posts :  site.posts;
-            allpost.each(post => years[post.date.year()] = null);
-            for (let year of Object.keys(years).sort((a, b) => b - a)) {
-                let posts = allpost.filter(p => p.date.year() == year);
-                buildArchive(posts, year)
-            }
-        } else {
-			let year = page.year;
-			let posts = site.posts.filter(p => p.date.year() == year);
-			buildArchive(posts, year)
-        }
-        %>
-    </article>
+  <article class="archive-timeline-panel" id="hexo-archives">
+    <div class="archive-section-head">
+      <div>
+        <h2>Hexo 文章归档</h2>
+        <p>主题教程、开发记录和本地站点说明会显示在这里。</p>
+      </div>
+      <span id="archive-filter-status"></span>
+    </div>
+    <%
+      const grouped = {};
+      const allPosts = site.posts.sort('date', -1);
+      allPosts.each(function(post){
+        const year = post.date.year();
+        if (!grouped[year]) grouped[year] = [];
+        grouped[year].push(post);
+      });
+      Object.keys(grouped).sort((a, b) => b - a).forEach(function(year){
+    %>
+      <section class="archive-year-block" data-archive-year="<%= year %>">
+        <h3><%= year %><span><%= grouped[year].length %></span></h3>
+        <ul>
+          <% grouped[year].forEach(function(post){
+            const catText = post.categories && post.categories.length ? post.categories.map(function(c){ return c.name; }).join(' ') : '';
+            const tagText = post.tags && post.tags.length ? post.tags.map(function(t){ return t.name; }).join(' ') : '';
+          %>
+            <li class="archive-item" data-year="<%= year %>" data-search="<%- String(post.title + ' ' + catText + ' ' + tagText).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;') %>">
+              <time><%= date(post.date, 'MM-DD') %></time>
+              <a href="<%- url_for(post.path) %>"><%- post.title %></a>
+              <small><%= catText || '未分类' %></small>
+            </li>
+          <% }) %>
+        </ul>
+      </section>
+    <% }) %>
+  </article>
+
+  <section class="archive-timeline-panel db-archive-panel" id="xjh-db-archives">
+    <div class="archive-section-head">
+      <div>
+        <h2>系统上架博客</h2>
+        <p>这里读取 MySQL 中已通过审核的文章，适合演示管理员审核后的动态归档。</p>
+      </div>
+      <span id="db-archive-status">正在加载...</span>
+    </div>
+    <div class="archive-tools-panel compact">
+      <input id="db-archive-search" placeholder="搜索系统文章、作者、分类或标签">
+      <select id="db-archive-year"><option value="">全部年份</option></select>
+    </div>
+    <div id="db-archive-list" class="db-archive-list"></div>
+  </section>
 </section>
+
+<script>
+(function () {
+  const API_BASE = window.BLOG_API_BASE || 'http://127.0.0.1:8080/api';
+  const staticSearch = document.getElementById('archive-search');
+  const staticYear = document.getElementById('archive-year-filter');
+  const staticStatus = document.getElementById('archive-filter-status');
+
+  function applyStaticFilter() {
+    const q = (staticSearch && staticSearch.value || '').trim().toLowerCase();
+    const year = staticYear && staticYear.value || '';
+    let shown = 0;
+    document.querySelectorAll('#hexo-archives .archive-item').forEach(function (item) {
+      const ok = (!year || item.dataset.year === year) && (!q || String(item.dataset.search || '').toLowerCase().indexOf(q) >= 0);
+      item.hidden = !ok;
+      if (ok) shown++;
+    });
+    document.querySelectorAll('#hexo-archives .archive-year-block').forEach(function (block) {
+      block.hidden = !Array.from(block.querySelectorAll('.archive-item')).some(function (item) { return !item.hidden; });
+    });
+    if (staticStatus) staticStatus.textContent = shown ? '已筛到 ' + shown + ' 篇' : '没有匹配文章';
+  }
+
+  if (staticSearch) staticSearch.addEventListener('input', applyStaticFilter);
+  if (staticYear) staticYear.addEventListener('change', applyStaticFilter);
+  const initialYear = new URLSearchParams(location.search).get('year');
+  if (initialYear && staticYear) staticYear.value = initialYear;
+  applyStaticFilter();
+
+  const dbList = document.getElementById('db-archive-list');
+  const dbStatus = document.getElementById('db-archive-status');
+  const dbSearch = document.getElementById('db-archive-search');
+  const dbYear = document.getElementById('db-archive-year');
+  let dbArticles = [];
+  const dbParams = new URLSearchParams(location.search);
+  const initialDbTagId = dbParams.get('tagId') || '';
+  const initialDbCategoryId = dbParams.get('categoryId') || '';
+
+  function escapeHtml(value) {
+    return String(value == null ? '' : value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+  }
+
+  function yearOf(value) {
+    const match = String(value || '').match(/^\d{4}/);
+    return match ? match[0] : '未归档';
+  }
+
+  function dateOf(value) {
+    return String(value || '').replace('T', ' ').slice(5, 10) || '--';
+  }
+
+  function renderDbArchives() {
+    if (!dbList) return;
+    const q = (dbSearch && dbSearch.value || '').trim().toLowerCase();
+    const year = dbYear && dbYear.value || '';
+    const filtered = dbArticles.filter(function (article) {
+      const haystack = [article.title, article.summary, article.content, article.authorName, article.categoryName, (article.tagNames || []).join(' ')].join(' ').toLowerCase();
+      const tagMatch = !initialDbTagId || (article.tagIds || []).map(String).indexOf(String(initialDbTagId)) >= 0;
+      const categoryMatch = !initialDbCategoryId || String(article.categoryId || '') === String(initialDbCategoryId);
+      return tagMatch && categoryMatch && (!year || yearOf(article.createdAt) === year) && (!q || haystack.indexOf(q) >= 0);
+    });
+    const groups = {};
+    filtered.forEach(function (article) {
+      const y = yearOf(article.createdAt);
+      if (!groups[y]) groups[y] = [];
+      groups[y].push(article);
+    });
+    dbList.innerHTML = Object.keys(groups).sort().reverse().map(function (yearKey) {
+      return `<section class="archive-year-block"><h3>${escapeHtml(yearKey)}<span>${groups[yearKey].length}</span></h3><ul>${groups[yearKey].map(function (article) {
+        const tags = (article.tagNames || []).slice(0, 3).map(function (tag) { return `<b>#${escapeHtml(tag)}</b>`; }).join('');
+        return `<li class="archive-item"><time>${escapeHtml(dateOf(article.createdAt))}</time><a href="/article.html?id=${encodeURIComponent(article.id)}">${escapeHtml(article.title)}</a><small>${escapeHtml(article.categoryName || '未分类')} · ${article.viewCount || 0} 阅读 · ${article.likeCount || 0} 赞 ${tags}</small></li>`;
+      }).join('')}</ul></section>`;
+    }).join('') || '<p class="archive-empty">还没有上架博客，等管理员审核通过后就会出现在这里。</p>';
+    if (dbStatus) dbStatus.textContent = filtered.length ? '已同步 ' + filtered.length + ' 篇' : '暂无匹配文章';
+  }
+
+  fetch(API_BASE + '/articles')
+    .then(function (res) { return res.json(); })
+    .then(function (json) {
+      dbArticles = json && json.success && Array.isArray(json.data) ? json.data : [];
+      const years = Array.from(new Set(dbArticles.map(function (article) { return yearOf(article.createdAt); }))).sort().reverse();
+      if (dbYear) dbYear.innerHTML = '<option value="">全部年份</option>' + years.map(function (year) { return '<option value="' + escapeHtml(year) + '">' + escapeHtml(year) + ' 年</option>'; }).join('');
+      const urlYear = new URLSearchParams(location.search).get('year');
+      if (urlYear && dbYear && years.indexOf(urlYear) >= 0) dbYear.value = urlYear;
+      renderDbArchives();
+    })
+    .catch(function () {
+      if (dbStatus) dbStatus.textContent = '后端未连接';
+      if (dbList) dbList.innerHTML = '<p class="archive-empty">没有连上后端，启动 npm run web 后可查看数据库上架归档。</p>';
+    });
+
+  if (dbSearch) dbSearch.addEventListener('input', renderDbArchives);
+  if (dbYear) dbYear.addEventListener('change', renderDbArchives);
+}());
+</script>

@@ -6,18 +6,18 @@
 
 已接入页面功能：
 
-1. AI 生成大纲：根据文章标题生成写作结构。
-2. AI 生成摘要：根据正文生成短摘要。
-3. AI 推荐标签：根据当前文章标题和正文推荐 3-6 个标签，并自动填入编辑器标签框。
+1. AI 生成大纲：根据文章标题、正文、分类、标签和用户提示词生成写作结构。
+2. AI 生成摘要：根据文章上下文生成短摘要。
+3. AI 推荐标签：根据当前文章上下文推荐 3-6 个标签，并自动填入编辑器标签框。
 4. AI 评论审核：评论提交时做本地风险词初审，管理员仍可最终审核。
 5. AI 博客问答：根据当前博客内容做简单问答演示。
 
 ## 标签推荐逻辑
 
-系统现在是“双模式”：
+系统现在是“真实调用优先”：
 
-- 未配置大模型 API：使用本地规则推荐标签，例如 Spring Boot、Hexo、AI、JavaScript、随笔。
-- 配置大模型 API：优先调用 DeepSeek 或其他 OpenAI 兼容接口，失败时自动回退到本地规则。
+- 默认必须调用 DeepSeek 或其他 OpenAI 兼容接口，失败时页面会显示真实错误，不再用固定模板伪生成。
+- 如需课堂演示时临时启用本地兜底，可设置 `AI_ALLOW_LOCAL_FALLBACK=true`。
 
 ## 接入 DeepSeek API
 
@@ -25,7 +25,9 @@ DeepSeek 使用 OpenAI 兼容的 Chat Completions 格式。启动后端前设置
 
 ```powershell
 $env:DEEPSEEK_API_KEY="你的 DeepSeek API Key"
-$env:DEEPSEEK_MODEL="deepseek-chat"
+$env:DEEPSEEK_MODEL="deepseek-v4-pro"
+$env:DEEPSEEK_THINKING="enabled"
+$env:AI_ALLOW_LOCAL_FALLBACK="false"
 npm run web
 ```
 
@@ -34,11 +36,13 @@ npm run web
 ```powershell
 $env:AI_CHAT_ENDPOINT="https://api.deepseek.com/chat/completions"
 $env:AI_CHAT_API_KEY="你的 DeepSeek API Key"
-$env:AI_CHAT_MODEL="deepseek-chat"
+$env:AI_CHAT_MODEL="deepseek-v4-pro"
+$env:AI_CHAT_THINKING="enabled"
 npm run web
 ```
 
 推荐使用 `AI_CHAT_*`，它更通用；`DEEPSEEK_*` 是为了方便 DeepSeek 单独配置。
+pm run web` 启动时会自动忽略不可用的 127.0.0.1 本地代理，避免 DeepSeek 请求被坏代理截断。
 
 ## 接入其他大模型
 
@@ -55,4 +59,4 @@ npm run web
 
 ## 数据库记录
 
-AI 调用会写入 `ai_usage_logs` 表，管理员后台可以查看功能类型、输入内容和输出结果。标签推荐生成的新标签会自动写入 `tags` 表，并通过 `article_tags` 与文章关联。
+AI 调用会写入 `ai_usage_logs` 表，管理员后台可以查看功能类型、完整提示词、DeepSeek 返回的思考过程/处理摘要和输出结果。标签推荐生成的新标签会自动写入 `tags` 表，并通过 `article_tags` 与文章关联。

@@ -5,6 +5,7 @@ import com.tangyuxian.blog.dto.ArticleRequest;
 import com.tangyuxian.blog.model.Article;
 import com.tangyuxian.blog.model.ArticleAttachment;
 import com.tangyuxian.blog.model.ArticleStatus;
+import com.tangyuxian.blog.model.Category;
 import com.tangyuxian.blog.model.Notification;
 import com.tangyuxian.blog.model.Role;
 import com.tangyuxian.blog.model.Tag;
@@ -28,7 +29,7 @@ public class ArticleService {
     }
 
     public List<Article> feed(User user, String keyword, Long categoryId, Long tagId) {
-        return filter(repository.listArticles(), keyword, categoryId, tagId, false, user == null ? null : user.getId(), true);
+        return filter(repository.listArticles(), keyword, categoryId, tagId, false, user == null ? null : user.getId(), null);
     }
 
     public List<Article> listMine(User user, String keyword, Long categoryId, Long tagId) {
@@ -115,11 +116,11 @@ public class ArticleService {
         return decorate(repository.findArticleById(articleId), userId);
     }
 
-    private List<Article> filter(List<Article> source, String keyword, Long categoryId, Long tagId, boolean includeDrafts, Long userId, boolean excludeUser) {
+    private List<Article> filter(List<Article> source, String keyword, Long categoryId, Long tagId, boolean includeDrafts, Long userId, Boolean excludeUser) {
         List<Article> result = new ArrayList<Article>();
         for (Article article : source) {
-            if (userId != null && excludeUser && userId.equals(article.getAuthorId())) continue;
-            if (userId != null && !excludeUser && !userId.equals(article.getAuthorId())) continue;
+            if (userId != null && excludeUser != null && excludeUser && userId.equals(article.getAuthorId())) continue;
+            if (userId != null && excludeUser != null && !excludeUser && !userId.equals(article.getAuthorId())) continue;
             if (!includeDrafts && article.getStatus() != ArticleStatus.PUBLISHED) continue;
             if (categoryId != null && !categoryId.equals(article.getCategoryId())) continue;
             if (tagId != null && (article.getTagIds() == null || !article.getTagIds().contains(tagId))) continue;
@@ -142,9 +143,7 @@ public class ArticleService {
     private void apply(Article article, ArticleRequest request, User user) {
         requireText(request.getTitle(), "请输入文章标题");
         requireText(request.getContent(), "请输入文章正文");
-        if (request.getCategoryId() == null || repository.findCategoryById(request.getCategoryId()) == null) {
-            throw new BusinessException("请选择有效分类");
-        }
+        Long categoryId = resolveCategoryId(request);
         List<Long> tagIds = request.getTagIds() == null ? new ArrayList<Long>() : new ArrayList<Long>(request.getTagIds());
         for (Long tagId : tagIds) {
             if (tagId == null || repository.findTagById(tagId) == null) {
@@ -165,7 +164,7 @@ public class ArticleService {
         article.setSummary(request.getSummary() == null ? "" : request.getSummary().trim());
         article.setContent(request.getContent().trim());
         article.setAttachments(sanitizeAttachments(request.getAttachments()));
-        article.setCategoryId(request.getCategoryId());
+        article.setCategoryId(categoryId);
         article.setTagIds(tagIds);
         if (user.getRole() == Role.ADMIN) {
             article.setStatus(parseStatus(request.getStatus(), ArticleStatus.PUBLISHED));
@@ -176,6 +175,19 @@ public class ArticleService {
         }
     }
 
+    private Long resolveCategoryId(ArticleRequest request) {
+        String customName = request.getCategoryName() == null ? "" : request.getCategoryName().trim();
+        if (!customName.isEmpty()) {
+            if (customName.length() > 30) throw new BusinessException("分类名称过长：" + customName);
+            Category category = repository.findCategoryByName(customName);
+            if (category == null) category = repository.saveCategory(new Category(null, customName, "用户自定义分类", null));
+            return category.getId();
+        }
+        if (request.getCategoryId() == null || repository.findCategoryById(request.getCategoryId()) == null) {
+            throw new BusinessException("请选择有效分类，或填写自定义分类");
+        }
+        return request.getCategoryId();
+    }
     private List<ArticleAttachment> sanitizeAttachments(List<ArticleAttachment> attachments) {
         List<ArticleAttachment> result = new ArrayList<ArticleAttachment>();
         if (attachments == null) return result;

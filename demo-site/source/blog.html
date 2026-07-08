@@ -1,15 +1,15 @@
 ---
 title: 用户工作台
 permalink: blog.html
-cover: /images/post/JavaScript.jpg
-coverWidth: 1200
-coverHeight: 320
+cover: /images/background/gongzuotai.jpg
+coverWidth: 1920
+coverHeight: 760
 ---
 
 <link rel="stylesheet" href="/blog-system.css">
 
 <section class="blog-app" id="blog-page">
-  <header class="blog-app-head">
+  <header class="blog-app-head" id="blog-dashboard-section">
     <div>
       <p class="section-kicker">普通用户</p>
       <h2>博客工作台</h2>
@@ -18,72 +18,109 @@ coverHeight: 320
     <button id="logout-btn" class="danger">退出登录</button>
   </header>
 
-  <section class="blog-panel blog-panel-accent">
-    <div class="panel-heading">
+  <section class="blog-panel blog-panel-accent" id="blog-home-section">
+    <div class="panel-heading compact-heading">
       <div>
         <p class="section-kicker">首页</p>
         <h2>已上架博客</h2>
-        <p class="blog-muted">查看其他用户审核通过的文章，支持点赞和提交评论。评论通过管理员审核后公开显示。</p>
+        <p class="blog-muted">查看已通过审核的文章，支持点赞、评论和下载附件。</p>
       </div>
       <div id="home-status" class="blog-status" aria-live="polite"></div>
     </div>
     <div class="blog-toolbar compact-toolbar" aria-label="首页文章筛选">
-      <input id="home-keyword" placeholder="搜索首页文章">
+      <input id="home-keyword" placeholder="搜索标题、摘要或正文">
       <select id="home-category-filter"><option value="">全部分类</option></select>
       <select id="home-tag-filter"><option value="">全部标签</option></select>
-      <button id="home-search-btn">刷新首页</button>
+      <button id="home-search-btn">刷新</button>
     </div>
     <div id="home-article-list" class="article-grid feed-grid"></div>
+    <nav id="home-pagination" class="blog-pagination" aria-label="首页文章分页"></nav>
   </section>
 
-  <section class="blog-panel">
-    <div class="panel-heading">
+  <section class="blog-panel site-map-panel" id="blog-site-map">
+    <div class="panel-heading compact-heading">
       <div>
-        <p class="section-kicker">我的内容</p>
+        <p class="section-kicker">站点</p>
+        <h2>分类、标签与归档</h2>
+        <p class="blog-muted">参考原主题侧栏，把已上架文章的分类、标签和年份集中成一个快速索引。</p>
+      </div>
+    </div>
+    <div id="site-map-stats" class="stats-grid mini-stats"></div>
+    <div class="site-map-grid">
+      <div>
+        <h3>文章分类</h3>
+        <div id="site-category-cloud" class="cloud-list"></div>
+      </div>
+      <div>
+        <h3>标签云</h3>
+        <div id="site-tag-cloud" class="cloud-list"></div>
+      </div>
+      <div>
+        <h3>文章归档</h3>
+        <div id="site-archive-list" class="archive-list"></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="blog-panel" id="blog-manage-section">
+    <div class="panel-heading compact-heading">
+      <div>
+        <p class="section-kicker">内容</p>
         <h2>文章管理</h2>
-        <p class="blog-muted">草稿仅自己可见；提交审核后，管理员通过才会上架到首页。</p>
+        <p class="blog-muted">管理草稿、待审核和已上架文章。</p>
       </div>
       <div id="blog-status" class="blog-status" aria-live="polite"></div>
     </div>
     <div class="blog-toolbar compact-toolbar" aria-label="我的文章筛选">
-      <input id="blog-keyword" placeholder="搜索我的文章标题、摘要或正文">
+      <input id="blog-keyword" placeholder="搜索我的文章">
       <select id="blog-category-filter"><option value="">全部分类</option></select>
       <select id="blog-tag-filter"><option value="">全部标签</option></select>
-      <button id="blog-search-btn">搜索我的文章</button>
+      <button id="blog-search-btn">搜索</button>
     </div>
     <div id="article-list" class="article-grid"></div>
   </section>
 
-  <section class="blog-panel">
-    <div class="panel-heading">
+  <section class="blog-panel" id="blog-editor-section">
+    <div class="panel-heading compact-heading">
       <div>
         <p class="section-kicker">编辑器</p>
         <h2>发布或编辑文章</h2>
-        <p class="blog-muted">文章会同步保存到 MySQL 的 articles 与 article_tags 表。</p>
+        <p class="blog-muted">正文、分类、标签和附件会同步保存到 MySQL。</p>
       </div>
     </div>
     <form id="article-form" class="blog-form editor-form">
       <input type="hidden" id="article-id">
       <div class="editor-main">
         <input id="article-title" required placeholder="文章标题">
-        <textarea id="article-summary" placeholder="文章摘要"></textarea>
-        <textarea id="article-content" required placeholder="文章正文" rows="9"></textarea>
+        <textarea id="article-summary" placeholder="一句话摘要，留空也可以"></textarea>
+        <textarea id="article-content" required placeholder="文章正文" rows="10"></textarea>
       </div>
       <aside class="editor-side" aria-label="文章设置">
         <label class="field-label" for="article-category">文章分类</label>
-        <select id="article-category" required></select>
+        <select id="article-category"></select>
+        <div class="category-compose">
+          <input id="article-category-custom" placeholder="自定义分类，例如 前端笔记">
+          <button type="button" id="ai-category-btn" class="secondary">AI 推荐分类</button>
+        </div>
+        <p class="blog-muted compact-help">选择已有分类，或直接填写新分类。</p>
+
         <label class="field-label" for="article-status">保存方式</label>
         <select id="article-status">
           <option value="PENDING">提交审核</option>
           <option value="DRAFT">保存草稿</option>
         </select>
+
         <label class="field-label" for="article-tag-input">文章标签</label>
         <div class="tag-compose">
-          <input id="article-tag-input" placeholder="输入标签，用逗号分隔；也可点击 AI 推荐">
+          <input id="article-tag-input" placeholder="输入标签，用逗号分隔">
           <button type="button" id="ai-tags-btn" class="secondary">AI 推荐标签</button>
         </div>
         <div id="article-tags" class="tag-preview" aria-live="polite"></div>
-        <p class="blog-muted">AI 会根据当前标题和正文推荐标签，你也可以自己填写。</p>
+
+        <label class="field-label" for="article-ai-instruction">给 AI 的提示词</label>
+        <textarea id="article-ai-instruction" class="ai-instruction-input" rows="4" placeholder="告诉 AI：文章面向谁、重点是什么、希望输出什么风格。">请结合文章标题、正文、分类和标签，生成适合博客系统直接使用的中文结果；如果信息不足，请基于已有内容给出保守建议。</textarea>
+        <p class="blog-muted compact-help">AI 推荐标签、分类、摘要和大纲时都会读取这段提示词。</p>
+
         <label class="field-label" for="article-files">文章附件</label>
         <input id="article-files" type="file" multiple accept="image/*,.ppt,.pptx,.pdf,.doc,.docx,.xls,.xlsx,.zip,.txt,.md">
         <div id="article-attachments" class="attachment-list" aria-live="polite"></div>

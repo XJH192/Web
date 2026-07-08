@@ -7,16 +7,18 @@ public class AiUsageLog {
     private Long userId;
     private String feature;
     private String prompt;
+    private String thinking;
     private String result;
     private LocalDateTime createdAt;
 
     public AiUsageLog() {}
 
-    public AiUsageLog(Long id, Long userId, String feature, String prompt, String result, LocalDateTime createdAt) {
+    public AiUsageLog(Long id, Long userId, String feature, String prompt, String thinking, String result, LocalDateTime createdAt) {
         this.id = id;
         this.userId = userId;
         this.feature = feature;
         this.prompt = prompt;
+        this.thinking = thinking;
         this.result = result;
         this.createdAt = createdAt;
     }
@@ -29,6 +31,8 @@ public class AiUsageLog {
     public void setFeature(String feature) { this.feature = feature; }
     public String getPrompt() { return prompt; }
     public void setPrompt(String prompt) { this.prompt = prompt; }
+    public String getThinking() { return thinking; }
+    public void setThinking(String thinking) { this.thinking = thinking; }
     public String getResult() { return result; }
     public void setResult(String result) { this.result = result; }
     public LocalDateTime getCreatedAt() { return createdAt; }

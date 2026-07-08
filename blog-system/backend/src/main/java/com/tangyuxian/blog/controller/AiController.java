@@ -34,6 +34,11 @@ public class AiController {
         return ApiResponse.ok(aiService.recommendTags(request));
     }
 
+    @PostMapping("/category")
+    public ApiResponse<Map<String, Object>> category(@RequestBody AiRequest request) {
+        return ApiResponse.ok(aiService.recommendCategory(request));
+    }
+
     @PostMapping("/qa")
     public ApiResponse<Map<String, Object>> answer(@RequestBody AiRequest request) {
         return ApiResponse.ok(aiService.answer(request));

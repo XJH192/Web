@@ -5,6 +5,7 @@ import com.tangyuxian.blog.common.BusinessException;
 import com.tangyuxian.blog.dto.DashboardStats;
 import com.tangyuxian.blog.model.AiUsageLog;
 import com.tangyuxian.blog.model.Article;
+import com.tangyuxian.blog.model.ArticleStatus;
 import com.tangyuxian.blog.model.Comment;
 import com.tangyuxian.blog.model.Role;
 import com.tangyuxian.blog.model.User;
@@ -21,6 +22,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.ArrayList;
 import java.util.List;
 
 @RestController
@@ -98,7 +100,11 @@ public class AdminController {
     @GetMapping("/articles")
     public ApiResponse<List<Article>> articles(@RequestHeader(value = "X-Token", required = false) String token) {
         authService.requireAdmin(token);
-        return ApiResponse.ok(repository.listArticles());
+        List<Article> visible = new ArrayList<Article>();
+        for (Article article : repository.listArticles()) {
+            if (article.getStatus() != ArticleStatus.DRAFT) visible.add(article);
+        }
+        return ApiResponse.ok(visible);
     }
 
     @PutMapping("/articles/{id}/status")

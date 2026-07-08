@@ -1,4 +1,4 @@
-﻿# Frontend Notes
+# Frontend Notes
 
 本项目复用仓库现有 Hexo 主题作为前端，因此动态页面没有放在 `blog-system/frontend` 内，而是直接集成到：
 

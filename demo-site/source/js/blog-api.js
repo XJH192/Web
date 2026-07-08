@@ -1,6 +1,6 @@
 (function () {
   const API_BASE = window.BLOG_API_BASE || 'http://127.0.0.1:8080/api';
-  const state = { categories: [], tags: [], currentUser: null, editorAttachments: [] };
+  const state = { categories: [], tags: [], currentUser: null, editorAttachments: [], homeArticles: [], homePage: 1, homePageSize: 4, homeYear: '', adminAiLogs: [], adminAiLogPage: 1, adminAiLogPageSize: 5, adminAiLogKeyword: '', adminAiLogFeature: '' };
 
   function $(id) { return document.getElementById(id); }
   function token() { return localStorage.getItem('blogToken') || ''; }
@@ -57,6 +57,8 @@
       AI_OUTLINE: 'AI 大纲生成',
       AI_SUMMARY: 'AI 摘要生成',
       AI_TAGS: 'AI 标签推荐',
+      AI_CATEGORY: 'AI 分类推荐',
+      AI_REMOTE_ERROR: 'AI 远程调用错误',
       AI_COMMENT_REVIEW: 'AI 评论审核',
       AI_QA: 'AI 博客问答'
     };
@@ -170,6 +172,91 @@
     const first = placeholder == null ? '<option value="">全部标签</option>' : `<option value="">${escapeHtml(placeholder)}</option>`;
     return first + state.tags.map(t => `<option value="${t.id}" ${Number(selected) === t.id ? 'selected' : ''}>${escapeHtml(t.name)}</option>`).join('');
   }
+  function articleYear(value) {
+    const match = String(value || '').match(/^\d{4}/);
+    return match ? match[0] : '未归档';
+  }
+  function countBy(items, getter) {
+    const counts = new Map();
+    (items || []).forEach(function (item) {
+      const key = getter(item);
+      if (!key) return;
+      counts.set(key, (counts.get(key) || 0) + 1);
+    });
+    return counts;
+  }
+  function renderSiteMap() {
+    const stats = $('site-map-stats');
+    if (!stats) return;
+    const articles = state.homeArticles || [];
+    const categoryCounts = countBy(articles, item => item.categoryName || '未分类');
+    const tagCounts = new Map();
+    articles.forEach(function (article) {
+      (article.tagNames || []).forEach(function (name) {
+        if (name) tagCounts.set(name, (tagCounts.get(name) || 0) + 1);
+      });
+    });
+    const yearCounts = countBy(articles, item => articleYear(item.createdAt));
+    stats.innerHTML = [
+      ['已上架文章', articles.length],
+      ['文章分类', categoryCounts.size || state.categories.length],
+      ['文章标签', tagCounts.size || state.tags.length],
+      ['归档年份', yearCounts.size]
+    ].map(item => `<div class="stat-card"><strong>${item[0]}</strong><br>${item[1]}</div>`).join('');
+
+    const categoryBox = $('site-category-cloud');
+    if (categoryBox) {
+      const categories = state.categories.map(c => ({ id: c.id, name: c.name, count: categoryCounts.get(c.name) || 0 }))
+        .filter(item => item.count > 0 || state.categories.length <= 8);
+      categoryBox.innerHTML = categories.length ? categories.map(item => `<button type="button" class="site-chip" data-site-category="${item.id}">${escapeHtml(item.name)} <span>${item.count}</span></button>`).join('') : '<span class="blog-muted">暂无分类。</span>';
+    }
+
+    const tagBox = $('site-tag-cloud');
+    if (tagBox) {
+      const tags = state.tags.map(t => ({ id: t.id, name: t.name, count: tagCounts.get(t.name) || 0 }))
+        .filter(item => item.count > 0 || state.tags.length <= 10)
+        .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, 'zh-Hans-CN'));
+      tagBox.innerHTML = tags.length ? tags.map(item => `<button type="button" class="site-chip" data-site-tag="${item.id}">#${escapeHtml(item.name)} <span>${item.count}</span></button>`).join('') : '<span class="blog-muted">暂无标签。</span>';
+    }
+
+    const archiveBox = $('site-archive-list');
+    if (archiveBox) {
+      const years = Array.from(yearCounts.entries()).sort((a, b) => String(b[0]).localeCompare(String(a[0])));
+      archiveBox.innerHTML = years.length ? years.map(item => `<button type="button" class="archive-link ${state.homeYear === item[0] ? 'is-active' : ''}" data-site-year="${escapeHtml(item[0])}">${escapeHtml(item[0])}<span>${item[1]}</span></button>`).join('') : '<span class="blog-muted">暂无归档。</span>';
+    }
+  }
+  function renderTaxonomyControls() {
+    const controls = [
+      ['home-category-filter', categoryOptions(null, '全部分类')],
+      ['home-tag-filter', tagOptions(null, '全部标签')],
+      ['blog-category-filter', categoryOptions(null, '全部分类')],
+      ['blog-tag-filter', tagOptions(null, '全部标签')],
+      ['article-category', categoryOptions(null, '选择已有分类')]
+    ];
+    controls.forEach(function (item) {
+      const el = $(item[0]);
+      if (el) el.innerHTML = item[1];
+    });
+  }
+  function setCategoryInput(name) {
+    const value = String(name || '').trim();
+    const select = $('article-category');
+    const custom = $('article-category-custom');
+    const match = state.categories.find(function (item) { return item.name && item.name.toLowerCase() === value.toLowerCase(); });
+    if (select) select.value = match ? match.id : '';
+    if (custom) custom.value = match ? '' : value;
+  }
+  function selectedCategoryName() {
+    const input = $('article-category-custom');
+    const custom = input ? input.value.trim() : '';
+    if (custom) return custom;
+    const select = $('article-category');
+    if (select && select.value && select.selectedIndex >= 0) {
+      const option = select.options[select.selectedIndex];
+      return option ? option.textContent.trim() : '';
+    }
+    return '';
+  }
   function uniqueNames(names) {
     const seen = new Set();
     return (names || []).map(name => String(name || '').trim()).filter(function (name) {
@@ -190,6 +277,19 @@
     const input = $('article-tag-input');
     return splitTagNames(input ? input.value : '');
   }
+  function aiInstruction() {
+    const input = $('article-ai-instruction');
+    return input ? input.value.trim() : '';
+  }
+  function aiPayload() {
+    return {
+      title: $('article-title').value,
+      content: $('article-content').value,
+      instruction: aiInstruction(),
+      categoryName: selectedCategoryName(),
+      tagNames: selectedTagNames()
+    };
+  }
   function selectedTagIds() { return []; }
   function renderTagPreview() {
     const box = $('article-tags');
@@ -198,6 +298,7 @@
     box.innerHTML = names.length
       ? names.map(name => `<span class="tag-pill">${escapeHtml(name)}</span>`).join('')
       : '<span class="blog-muted">暂未填写标签，可手动输入或点击 AI 推荐。</span>';
+    try { window.dispatchEvent(new CustomEvent('xjh:editor-tags', { detail: names })); } catch (error) { }
   }
   function normalizeAttachments(value) {
     return Array.isArray(value) ? value.filter(item => item && item.name && item.dataUrl) : [];
@@ -300,7 +401,7 @@
       <p class="section-kicker">消息提醒</p>
       <h2 id="blog-notice-title">${escapeHtml(title || '你有新消息')}</h2>
       <div class="blog-notice-list">${list.map(function (item) {
-        const link = item.link ? `<a href="${escapeHtml(item.link)}">查看</a>` : '';
+        const link = item.link ? `<a href="${escapeHtml(item.link)}" data-notice-link>查看</a>` : '';
         return `<article class="blog-notice-item"><strong>${escapeHtml(item.title || '新消息')}</strong><p>${escapeHtml(item.content || '')}</p><small>${formatDate(item.createdAt)} ${link}</small></article>`;
       }).join('')}</div>
     </section>`;
@@ -314,6 +415,22 @@
     }
     function onKeydown(event) { if (event.key === 'Escape') closeModal(); }
     modal.addEventListener('click', function handleClick(event) {
+      const noticeLink = event.target.closest('[data-notice-link]');
+      if (noticeLink) {
+        event.preventDefault();
+        const href = noticeLink.getAttribute('href');
+        modal.removeEventListener('click', handleClick);
+        closeModal();
+        const url = new URL(href, window.location.origin);
+        if (url.pathname === window.location.pathname && url.hash) {
+          history.pushState(null, '', url.hash);
+          const target = document.querySelector(url.hash);
+          if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        } else {
+          window.location.href = url.pathname + url.search + url.hash;
+        }
+        return;
+      }
       if (event.target === modal || event.target.closest('.blog-notice-close')) {
         modal.removeEventListener('click', handleClick);
         closeModal();
@@ -380,12 +497,22 @@
   function renderAiResult(targetId, data) {
     const target = $(targetId);
     if (!target) return;
+    if (data.error) {
+      target.innerHTML = `<div class="ai-error-card"><strong>DeepSeek 调用失败</strong><p>${escapeHtml(data.error)}</p>${data.thinking ? `<small>${escapeHtml(textPreview(data.thinking, 320))}</small>` : ''}</div>`;
+      return;
+    }
     if (data.outline) {
       target.innerHTML = `<strong>建议大纲</strong><ol>${data.outline.map(item => `<li>${escapeHtml(item.replace(/^\d+\.\s*/, ''))}</li>`).join('')}</ol>`;
       return;
     }
     if (data.summary) {
       target.innerHTML = `<strong>生成摘要</strong><p>${escapeHtml(data.summary)}</p>`;
+      return;
+    }
+    if (data.category) {
+      const category = String(data.category || '').trim();
+      setCategoryInput(category);
+      target.innerHTML = `<strong>推荐分类</strong><p><span class="tag-pill">${escapeHtml(category)}</span></p><p class="blog-muted">已同步到文章分类。若它不是已有分类，保存文章时会自动创建。</p>`;
       return;
     }
     if (data.tags) {
@@ -409,6 +536,17 @@
       if (el && el.value && el.value.trim()) params.set(field.name, el.value.trim());
     });
     return params.toString();
+  }
+  function applyHomeFiltersFromUrl() {
+    const params = new URLSearchParams(location.search || '');
+    const keyword = params.get('keyword') || '';
+    const categoryId = params.get('categoryId') || '';
+    const tagId = params.get('tagId') || '';
+    const year = params.get('year') || '';
+    if (keyword && $('home-keyword')) $('home-keyword').value = keyword;
+    if (categoryId && $('home-category-filter')) $('home-category-filter').value = categoryId;
+    if (tagId && $('home-tag-filter')) $('home-tag-filter').value = tagId;
+    state.homeYear = year;
   }
 
   async function initLoginPage() {
@@ -438,17 +576,17 @@
 
     if ($('register-form')) $('register-form').addEventListener('submit', async function (event) {
       event.preventDefault();
-      show('register-status', '正在写入数据库...');
+      show('register-status', '正在把小伙伴写入数据库...');
       try {
         const user = await api('/auth/register', {
           method: 'POST',
           body: JSON.stringify({
             username: $('register-username').value.trim(),
-            nickname: $('register-nickname').value.trim(),
+            email: $('register-email').value.trim(),
             password: $('register-password').value
           })
         });
-        show('register-status', `注册成功：${user.nickname || user.username}，请在左侧登录`);
+        show('register-status', `注册成功：${user.email || user.username}，请在左侧登录`);
         event.target.reset();
       } catch (error) {
         show('register-status', error.message);
@@ -466,11 +604,8 @@
     await loadTaxonomy();
 
     $('blog-user-summary').textContent = `当前用户：${userLine(user)}。提交后的文章需要管理员审核，通过后才会显示到首页。`;
-    $('home-category-filter').innerHTML = categoryOptions(null, '全部分类');
-    $('home-tag-filter').innerHTML = tagOptions(null, '全部标签');
-    $('blog-category-filter').innerHTML = categoryOptions(null, '全部分类');
-    $('blog-tag-filter').innerHTML = tagOptions(null, '全部标签');
-    $('article-category').innerHTML = categoryOptions(null, '请选择分类');
+    renderTaxonomyControls();
+    applyHomeFiltersFromUrl();
     setTagInput([]);
     state.editorAttachments = [];
     renderAttachments();
@@ -492,16 +627,15 @@
       }
     }
 
-    async function loadHomeArticles() {
-      try {
-        show('home-status', '正在加载首页文章...');
-        const query = buildQuery([
-          { id: 'home-keyword', name: 'keyword' },
-          { id: 'home-category-filter', name: 'categoryId' },
-          { id: 'home-tag-filter', name: 'tagId' }
-        ]);
-        const articles = await api('/articles/feed' + (query ? '?' + query : ''));
-        $('home-article-list').innerHTML = articles.map(article => `
+    function renderHomeArticles() {
+      const allArticles = state.homeArticles || [];
+      const articles = state.homeYear ? allArticles.filter(article => articleYear(article.createdAt) === state.homeYear) : allArticles;
+      const total = articles.length;
+      const totalPages = Math.max(1, Math.ceil(total / state.homePageSize));
+      state.homePage = Math.max(1, Math.min(state.homePage, totalPages));
+      const start = (state.homePage - 1) * state.homePageSize;
+      const pageArticles = articles.slice(start, start + state.homePageSize);
+      $('home-article-list').innerHTML = pageArticles.map(article => `
           <article class="article-card feed-card">
             <div class="article-card-head">
               <span class="status-pill success">已上架</span>
@@ -526,8 +660,26 @@
               <div data-comment-list="${article.id}" class="feed-comments"></div>
             </div>
           </article>
-        `).join('') || '<p class="blog-muted">暂无其他用户已上架博客。管理员审核通过后，文章会显示在这里。</p>';
-        show('home-status', `首页已加载 ${articles.length} 篇已上架文章`);
+        `).join('') || '<p class="blog-muted">暂无已上架博客。管理员审核通过后，文章会显示在这里。</p>';
+      const pager = $('home-pagination');
+      if (pager) {
+        pager.innerHTML = totalPages > 1 ? `<button type="button" class="secondary" data-home-page="${state.homePage - 1}" ${state.homePage <= 1 ? 'disabled' : ''}>上一页</button><span>第 ${state.homePage} / ${totalPages} 页</span><button type="button" class="secondary" data-home-page="${state.homePage + 1}" ${state.homePage >= totalPages ? 'disabled' : ''}>下一页</button>` : '';
+      }
+      show('home-status', total ? `共 ${total} 篇已上架文章，当前显示 ${pageArticles.length} 篇` : '暂无已上架文章');
+    }
+
+    async function loadHomeArticles(resetPage) {
+      try {
+        show('home-status', '正在加载首页文章...');
+        const query = buildQuery([
+          { id: 'home-keyword', name: 'keyword' },
+          { id: 'home-category-filter', name: 'categoryId' },
+          { id: 'home-tag-filter', name: 'tagId' }
+        ]);
+        const articles = await api('/articles/feed' + (query ? '?' + query : ''));
+        state.homeArticles = articles || [];
+        if (resetPage !== false) state.homePage = 1;
+        renderHomeArticles();
       } catch (error) {
         show('home-status', error.message);
       }
@@ -566,7 +718,41 @@
       }
     }
 
-    $('home-search-btn').addEventListener('click', loadHomeArticles);
+    $('home-search-btn').addEventListener('click', function () { state.homeYear = ''; loadHomeArticles(true); });
+    if ($('home-pagination')) $('home-pagination').addEventListener('click', function (event) {
+      const page = Number(event.target.getAttribute('data-home-page'));
+      if (!page) return;
+      state.homePage = page;
+      renderHomeArticles();
+      const home = $('blog-home-section');
+      if (home) home.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+    if ($('blog-site-map')) $('blog-site-map').addEventListener('click', function (event) {
+      const categoryBtn = event.target.closest('[data-site-category]');
+      const tagBtn = event.target.closest('[data-site-tag]');
+      const yearBtn = event.target.closest('[data-site-year]');
+      if (!categoryBtn && !tagBtn && !yearBtn) return;
+      if (categoryBtn && $('home-category-filter')) {
+        state.homeYear = '';
+        $('home-category-filter').value = categoryBtn.getAttribute('data-site-category');
+        if ($('home-tag-filter')) $('home-tag-filter').value = '';
+        loadHomeArticles(true);
+      }
+      if (tagBtn && $('home-tag-filter')) {
+        state.homeYear = '';
+        $('home-tag-filter').value = tagBtn.getAttribute('data-site-tag');
+        if ($('home-category-filter')) $('home-category-filter').value = '';
+        loadHomeArticles(true);
+      }
+      if (yearBtn) {
+        const year = yearBtn.getAttribute('data-site-year');
+        state.homeYear = state.homeYear === year ? '' : year;
+        state.homePage = 1;
+        renderHomeArticles();
+      }
+      const home = $('blog-home-section');
+      if (home) home.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
     $('home-article-list').addEventListener('click', async function (event) {
       const likeButtonEl = event.target.closest('[data-like-article]');
       const commentsButtonEl = event.target.closest('[data-home-comments]');
@@ -574,11 +760,14 @@
       const commentsId = commentsButtonEl ? commentsButtonEl.getAttribute('data-home-comments') : null;
       try {
         if (likeId) {
-          const liked = likeButtonEl.getAttribute('data-liked') === 'true';
+          const liked = likeButtonEl.getAttribute('data-liked') === 'true' || likeButtonEl.classList.contains('is-liked');
           likeButtonEl.disabled = true;
-          await api('/articles/' + likeId + '/like', { method: liked ? 'DELETE' : 'POST' });
+          const updated = await api('/articles/' + likeId + '/like', { method: liked ? 'DELETE' : 'POST' });
+          state.homeArticles = state.homeArticles.map(function (article) {
+            return String(article.id) === String(likeId) ? Object.assign({}, article, updated) : article;
+          });
           show('home-status', liked ? '已取消点赞' : '点赞成功');
-          await loadHomeArticles();
+          renderHomeArticles();
         }
         if (commentsId) await loadHomeComments(commentsId);
       } catch (error) {
@@ -607,6 +796,8 @@
 
     $('blog-search-btn').addEventListener('click', loadMyArticles);
     if ($('article-tag-input')) $('article-tag-input').addEventListener('input', renderTagPreview);
+    if ($('article-category-custom')) $('article-category-custom').addEventListener('input', function () { if ($('article-category-custom').value.trim()) $('article-category').value = ''; });
+    if ($('article-category')) $('article-category').addEventListener('change', function () { if ($('article-category').value && $('article-category-custom')) $('article-category-custom').value = ''; });
     if ($('article-files')) $('article-files').addEventListener('change', async function (event) {
       try {
         show('blog-status', '正在读取附件...');
@@ -632,6 +823,7 @@
     $('article-reset-btn').addEventListener('click', function () {
       $('article-form').reset();
       $('article-id').value = '';
+      setCategoryInput('');
       setTagInput([]);
       state.editorAttachments = [];
       renderAttachments();
@@ -647,7 +839,8 @@
           $('article-title').value = article.title;
           $('article-summary').value = article.summary || '';
           $('article-content').value = article.content;
-          $('article-category').value = article.categoryId;
+          $('article-category').value = article.categoryId || '';
+          if ($('article-category-custom')) $('article-category-custom').value = '';
           $('article-status').value = article.status === 'DRAFT' ? 'DRAFT' : 'PENDING';
           setTagInput(article.tagNames || []);
           state.editorAttachments = normalizeAttachments(article.attachments);
@@ -667,11 +860,13 @@
     $('article-form').addEventListener('submit', async function (event) {
       event.preventDefault();
       const id = $('article-id').value;
+      const selectedCategory = $('article-category').value;
       const payload = {
         title: $('article-title').value,
         summary: $('article-summary').value,
         content: $('article-content').value,
-        categoryId: Number($('article-category').value),
+        categoryId: selectedCategory ? Number(selectedCategory) : null,
+        categoryName: selectedCategoryName(),
         tagIds: selectedTagIds(),
         tagNames: selectedTagNames(),
         attachments: normalizeAttachments(state.editorAttachments),
@@ -682,10 +877,14 @@
         await api('/articles' + (id ? '/' + id : ''), { method: id ? 'PUT' : 'POST', body: JSON.stringify(payload) });
         event.target.reset();
         $('article-id').value = '';
+        await loadTaxonomy();
+        renderTaxonomyControls();
+        setCategoryInput('');
         setTagInput([]);
         state.editorAttachments = [];
         renderAttachments();
         await loadMyArticles();
+        if (window.refreshXjhSidebar) window.refreshXjhSidebar();
         show('blog-status', payload.status === 'DRAFT' ? '草稿已保存' : '文章已提交审核，管理员通过后会上架首页');
       } catch (error) {
         show('blog-status', error.message);
@@ -697,17 +896,18 @@
         show('blog-status', 'AI 正在生成...');
         const data = await api(path, { method: 'POST', body: JSON.stringify(payload) });
         renderAiResult('ai-output', data);
-        show('blog-status', 'AI 生成完成，记录已写入数据库日志');
+        show('blog-status', data.error ? 'DeepSeek 调用失败，错误已写入 AI 日志' : 'AI 生成完成，记录已写入数据库日志');
       } catch (error) {
         show('blog-status', error.message);
         $('ai-output').textContent = error.message;
       }
     }
-    $('ai-outline-btn').addEventListener('click', () => runAi('/ai/outline', { title: $('article-title').value }));
-    $('ai-summary-btn').addEventListener('click', () => runAi('/ai/summary', { content: $('article-content').value }));
-    $('ai-tags-btn').addEventListener('click', () => runAi('/ai/tags', { title: $('article-title').value, content: $('article-content').value }));
+    $('ai-outline-btn').addEventListener('click', () => runAi('/ai/outline', aiPayload()));
+    $('ai-summary-btn').addEventListener('click', () => runAi('/ai/summary', aiPayload()));
+    $('ai-tags-btn').addEventListener('click', () => runAi('/ai/tags', aiPayload()));
+    if ($('ai-category-btn')) $('ai-category-btn').addEventListener('click', () => runAi('/ai/category', aiPayload()));
 
-    await loadHomeArticles();
+    await loadHomeArticles(true);
     await loadMyArticles();
     await showUnreadNotifications('你有新的博客消息');
   }
@@ -794,6 +994,46 @@
     applyRoleNavigation(user);
     $('admin-user-summary').textContent = `当前管理员：${userLine(user)}。你拥有文章审核、评论审核、用户封禁、分类标签和 AI 日志管理权限。`;
 
+    function renderAdminAiLogs() {
+      const keyword = String(state.adminAiLogKeyword || '').trim().toLowerCase();
+      const feature = state.adminAiLogFeature || '';
+      const allLogs = state.adminAiLogs || [];
+      const features = uniqueNames(allLogs.map(log => log.feature)).filter(Boolean);
+      const logs = allLogs.filter(function (log) {
+        const haystack = [log.feature, log.prompt, log.thinking, log.result].map(item => String(item || '')).join(' ').toLowerCase();
+        return (!feature || log.feature === feature) && (!keyword || haystack.indexOf(keyword) >= 0);
+      });
+      const totalPages = Math.max(1, Math.ceil(logs.length / state.adminAiLogPageSize));
+      if (state.adminAiLogPage > totalPages) state.adminAiLogPage = totalPages;
+      if (state.adminAiLogPage < 1) state.adminAiLogPage = 1;
+      const start = (state.adminAiLogPage - 1) * state.adminAiLogPageSize;
+      const pageLogs = logs.slice(start, start + state.adminAiLogPageSize);
+      const listHtml = pageLogs.map(log => `<div class="admin-row ai-log-row">
+          <div class="ai-log-head"><strong>#${log.id} ${escapeHtml(featureText(log.feature))}</strong><span>${formatDate(log.createdAt)}</span></div>
+          <small class="ai-log-prompt">提示词：${escapeHtml(textPreview(log.prompt, 280))}</small>
+          ${log.thinking ? `<small class="ai-log-thinking">思考过程：${escapeHtml(textPreview(log.thinking, 520))}</small>` : ''}
+          <small>输出：${escapeHtml(textPreview(log.result, 300))}</small>
+        </div>`).join('') || '<p class="blog-muted">当前筛选下暂无 AI 使用记录。</p>';
+      $('admin-ai-logs').innerHTML = `
+        <div class="admin-ai-tools">
+          <input id="admin-ai-keyword" value="${escapeHtml(state.adminAiLogKeyword)}" placeholder="搜索提示词、思考过程或输出">
+          <select id="admin-ai-feature">
+            <option value="">全部 AI 功能</option>
+            ${features.map(item => `<option value="${escapeHtml(item)}" ${item === feature ? 'selected' : ''}>${escapeHtml(featureText(item))}</option>`).join('')}
+          </select>
+          <button type="button" class="secondary" data-ai-log-clear>清空筛选</button>
+        </div>
+        <div class="admin-ai-summary">共 ${logs.length} 条记录，当前第 ${state.adminAiLogPage} / ${totalPages} 页</div>
+        <div class="admin-ai-log-list">${listHtml}</div>
+        <nav class="blog-pagination admin-ai-pagination" aria-label="AI 日志分页">
+          <button type="button" class="secondary" data-ai-log-page="prev" ${state.adminAiLogPage <= 1 ? 'disabled' : ''}>上一页</button>
+          <span>${state.adminAiLogPage} / ${totalPages}</span>
+          <button type="button" class="secondary" data-ai-log-page="next" ${state.adminAiLogPage >= totalPages ? 'disabled' : ''}>下一页</button>
+        </nav>`;
+    }
+
+    let adminAiFilterTimer = null;
+
     async function refresh() {
       try {
         show('admin-status', '正在加载后台数据...');
@@ -810,7 +1050,7 @@
         $('admin-stats').innerHTML = Object.keys(statLabels).map(key => `<div class="stat-card"><strong>${statLabels[key]}</strong><br>${stats[key] || 0}</div>`).join('');
         $('admin-users').innerHTML = users.map(u => `<div class="admin-row">
           <strong>#${u.id} ${escapeHtml(u.username)}</strong>
-          <span>${escapeHtml(u.nickname)} | ${roleText(u.role)} | <span class="status-pill ${u.banned ? 'danger' : 'success'}">${u.banned ? '已封禁' : '正常'}</span> | 注册时间 ${formatDate(u.createdAt)}</span>
+          <span>${escapeHtml(u.nickname || u.username)} | ${escapeHtml(u.email || '未填写邮箱')} | ${roleText(u.role)} | <span class="status-pill ${u.banned ? 'danger' : 'success'}">${u.banned ? '已封禁' : '正常'}</span> | 注册时间 ${formatDate(u.createdAt)}</span>
           <div class="admin-row-actions">
             <button type="button" class="secondary" data-user-role="${u.id}" data-role="${u.role === 'ADMIN' ? 'USER' : 'ADMIN'}">设为${u.role === 'ADMIN' ? '普通用户' : '管理员'}</button>
             <button type="button" class="${u.banned ? 'secondary' : 'danger'}" data-user-ban="${u.id}" data-banned="${u.banned ? 'false' : 'true'}">${u.banned ? '解封用户' : '封禁用户'}</button>
@@ -845,12 +1085,8 @@
         </div>`).join('') || '<p class="blog-muted">暂无评论。</p>';
         $('admin-categories').innerHTML = state.categories.map(c => `<div class="admin-row"><span>#${c.id} ${escapeHtml(c.name)} - ${escapeHtml(c.description || '')}</span><button type="button" class="danger" data-delete-category="${c.id}">删除分类</button></div>`).join('') || '<p class="blog-muted">暂无分类。</p>';
         $('admin-tags').innerHTML = state.tags.map(t => `<span class="tag-pill">#${t.id} ${escapeHtml(t.name)} <button type="button" class="danger tiny-btn" data-delete-tag="${t.id}">删除</button></span>`).join('') || '<p class="blog-muted">暂无标签。</p>';
-        $('admin-ai-logs').innerHTML = aiLogs.map(log => `<div class="admin-row">
-          <strong>#${log.id} ${escapeHtml(featureText(log.feature))}</strong>
-          <span>${formatDate(log.createdAt)}</span>
-          <small>输入：${escapeHtml(textPreview(log.prompt, 120))}</small>
-          <small>输出：${escapeHtml(textPreview(log.result, 160))}</small>
-        </div>`).join('') || '<p class="blog-muted">暂无 AI 使用记录。</p>';
+        state.adminAiLogs = aiLogs;
+        renderAdminAiLogs();
         show('admin-status', '后台数据已刷新');
         showAdminReviewNotice(articles, comments);
       } catch (error) {
@@ -862,6 +1098,32 @@
     $('logout-btn').addEventListener('click', function () {
       clearSession();
       location.href = '/login.html';
+    });
+    $('admin-ai-logs').addEventListener('input', function (event) {
+      if (event.target.id !== 'admin-ai-keyword') return;
+      state.adminAiLogKeyword = event.target.value;
+      clearTimeout(adminAiFilterTimer);
+      adminAiFilterTimer = setTimeout(function () {
+        state.adminAiLogPage = 1;
+        renderAdminAiLogs();
+      }, 220);
+    });
+    $('admin-ai-logs').addEventListener('change', function (event) {
+      if (event.target.id !== 'admin-ai-feature') return;
+      state.adminAiLogFeature = event.target.value;
+      state.adminAiLogPage = 1;
+      renderAdminAiLogs();
+    });
+    $('admin-ai-logs').addEventListener('click', function (event) {
+      const pageAction = event.target.getAttribute('data-ai-log-page');
+      if (pageAction === 'prev') { state.adminAiLogPage -= 1; renderAdminAiLogs(); return; }
+      if (pageAction === 'next') { state.adminAiLogPage += 1; renderAdminAiLogs(); return; }
+      if (event.target.getAttribute('data-ai-log-clear') != null) {
+        state.adminAiLogKeyword = '';
+        state.adminAiLogFeature = '';
+        state.adminAiLogPage = 1;
+        renderAdminAiLogs();
+      }
     });
     $('admin-users').addEventListener('click', async function (event) {
       const roleUserId = event.target.getAttribute('data-user-role');

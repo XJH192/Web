@@ -16,15 +16,18 @@ function search() {
 // catalog
 document.querySelectorAll('a.toc-link').forEach(item => {
     item.addEventListener('click', function(ev) {
+        const href = this.getAttribute('href') || '';
+        if (!href.startsWith('#')) return;
+        const target = document.querySelector(decodeURI(href));
+        if (!target) return;
         ev.preventDefault();
-        const title = this.getAttribute('href');
         window.scroll({
-            top: document.querySelector(decodeURI(title)).offsetTop - 24,
+            top: Math.max(target.offsetTop - 24, 0),
             behavior: 'smooth'
         });
+        if (history.pushState) history.pushState(null, '', href);
     });
 });
-
 document.addEventListener('copy', () => {
     if (!window.copyTip) {
         return;
@@ -82,3 +85,115 @@ window.onload = function() {
         }
     });
 };
+
+(function () {
+    const API_BASE = window.BLOG_API_BASE || 'http://127.0.0.1:8080/api';
+    let sidebarData = { tags: [], categories: [], articles: [] };
+    let editorTags = [];
+
+    function escapeHtml(value) {
+        return String(value == null ? '' : value)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+    }
+
+    function ensureSidebar() {
+        const drawer = document.getElementById('drawer');
+        if (!drawer) return null;
+        let box = document.getElementById('xjh-dynamic-sidebar');
+        if (box) return box;
+        box = document.createElement('div');
+        box.id = 'xjh-dynamic-sidebar';
+        const menu = drawer.querySelector('.nexmoe-list');
+        if (menu && menu.parentNode) menu.insertAdjacentElement('afterend', box);
+        else drawer.appendChild(box);
+        return box;
+    }
+
+    function yearOf(value) {
+        const match = String(value || '').match(/^\d{4}/);
+        return match ? match[0] : '未归档';
+    }
+
+    function countBy(items, getter) {
+        const map = new Map();
+        (items || []).forEach(item => {
+            const key = getter(item);
+            if (!key) return;
+            map.set(key, (map.get(key) || 0) + 1);
+        });
+        return map;
+    }
+
+    async function fetchJson(path) {
+        const response = await fetch(API_BASE + path);
+        const json = await response.json();
+        if (!response.ok || !json.success) throw new Error(json.message || '请求失败');
+        return json.data || [];
+    }
+
+    function renderSidebar() {
+        const box = ensureSidebar();
+        if (!box) return;
+        const tags = sidebarData.tags || [];
+        const articles = sidebarData.articles || [];
+        const tagCount = new Map();
+        articles.forEach(article => {
+            (article.tagNames || []).forEach(name => tagCount.set(name, (tagCount.get(name) || 0) + 1));
+        });
+        const writingTags = editorTags
+            .filter(name => name && !tags.some(tag => String(tag.name).toLowerCase() === String(name).toLowerCase()))
+            .map(name => ({ name: name, id: '', writing: true }));
+        const shownTags = writingTags.concat(tags).slice(0, 28);
+        const yearCount = Array.from(countBy(articles, article => yearOf(article.createdAt)).entries())
+            .sort((a, b) => String(b[0]).localeCompare(String(a[0])));
+        const latest = articles.slice().sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || ''))).slice(0, 6);
+
+        box.innerHTML = `
+          <div class="nexmoe-widget-wrap xjh-live-widget">
+            <h3 class="nexmoe-widget-title">文章标签</h3>
+            <div class="xjh-live-tags">
+              ${shownTags.length ? shownTags.map((tag, index) => {
+                const label = escapeHtml(tag.name);
+                const count = tagCount.get(tag.name) || 0;
+                const href = tag.id ? `/archives.html?tagId=${encodeURIComponent(tag.id)}#xjh-db-archives` : '/archives.html';
+                return `<a class="xjh-live-tag color-${index % 8}${tag.writing ? ' is-writing' : ''}" href="${href}" title="${label}"># ${label}${count ? `<span>${count}</span>` : ''}</a>`;
+              }).join('') : '<span class="xjh-widget-empty">暂无标签</span>'}
+            </div>
+          </div>
+          <div class="nexmoe-widget-wrap xjh-live-widget">
+            <h3 class="nexmoe-widget-title">文章归档</h3>
+            <ul class="xjh-archive-list">
+              ${yearCount.length ? yearCount.map(item => `<li><a href="/archives.html?year=${encodeURIComponent(item[0])}#xjh-db-archives">${escapeHtml(item[0])}<span>${item[1]}</span></a></li>`).join('') : '<li><span class="xjh-widget-empty">暂无归档</span></li>'}
+            </ul>
+          </div>
+          <div class="nexmoe-widget-wrap xjh-live-widget">
+            <h3 class="nexmoe-widget-title">最新文章</h3>
+            <ul class="xjh-latest-list">
+              ${latest.length ? latest.map(article => `<li><a href="/article.html?id=${encodeURIComponent(article.id)}" title="${escapeHtml(article.title)}">${escapeHtml(article.title)}</a></li>`).join('') : '<li><span class="xjh-widget-empty">暂无上架文章</span></li>'}
+            </ul>
+          </div>`;
+    }
+
+    async function refreshSidebar() {
+        try {
+            const result = await Promise.all([fetchJson('/tags'), fetchJson('/categories'), fetchJson('/articles')]);
+            sidebarData = { tags: result[0] || [], categories: result[1] || [], articles: result[2] || [] };
+            renderSidebar();
+        } catch (error) {
+            renderSidebar();
+        }
+    }
+
+    window.refreshXjhSidebar = refreshSidebar;
+    window.addEventListener('xjh:editor-tags', event => {
+        editorTags = Array.isArray(event.detail) ? event.detail : [];
+        renderSidebar();
+    });
+
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', refreshSidebar);
+    else refreshSidebar();
+}());

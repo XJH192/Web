@@ -52,15 +52,12 @@ menu:
   相册:
     - /gallery.html
     - icon-image
-  友链:
-    - /friends.html
-    - icon-cola
-  动态:
-    - /memos.html
-    - icon-tangguo
   关于:
     - /about.html
     - icon-jiubei1
+  动态:
+    - /memos.html
+    - icon-tangguo
 
 memos:
   host: ''
@@ -105,15 +102,10 @@ widgets:
           - icon-bilibili
           - '#fb7299'
           - rgba(251, 114, 153, .16)
-        系统说明:
-          - /about.html
-          - icon-bokeyuan
-          - '#e67249'
-          - rgba(230, 114, 73, .14)
   - name: category
-    enable: true
+    enable: false
   - name: tagcloud
-    enable: true
+    enable: false
     options:
       maxTagcloud: 30
   - name: hitokoto
@@ -121,24 +113,21 @@ widgets:
     options:
       widgetHitokoto:
         local: 本地博客系统已完成前后端联动、权限控制与 AI 辅助功能。
-        loading_placeholder: 正在加载提示语...
-        loading_error_placeholder: 提示语服务暂不可用。
+        loading_placeholder: 小埋正在翻零食袋找一句话...
+        loading_error_placeholder: 提示语躲进被窝了，稍后再试。
         category: ''
   - name: archive
-    enable: true
+    enable: false
     options:
       widgetAchive:
         archive_type: year
         show_count: true
   - name: recent_posts
-    enable: true
+    enable: false
   - name: link
-    enable: true
+    enable: false
     options:
       widgetLink:
-        - title: xjh 主题说明
-          img: /images/post/git.jpg
-          link: /about.html
         - title: 博客工作台
           img: /images/post/AI.jpg
           link: /blog.html

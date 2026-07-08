@@ -229,66 +229,60 @@
       <div class="brand-lockup">
         <img src="/images/head/head.jpg" alt="博客系统头像">
         <div>
-          <strong>xjh 博客系统</strong>
-          <span>Spring Boot · MySQL · Hexo</span>
+          <strong>xjh 博客小窝</strong>
+          <span>小埋の写作补给站</span>
         </div>
       </div>
       <div class="brand-copy">
-        <h1>登录后进入你的博客工作区</h1>
-        <p>普通用户写作、互动；管理员审核文章、评论和用户状态。背景与主题风格保持原项目氛围。</p>
+        <h1>欢迎回到小埋的博客小窝</h1>
       </div>
-      <p class="brand-note">未登录时只显示登录入口，登录成功后会按身份自动跳转。</p>
     </section>
 
     <section class="auth-card">
       <div class="form-container">
         <div class="form-panel active" id="login-panel">
-          <h2>账号登录</h2>
-          <p class="form-intro">请输入数据库中已有的用户名和密码。</p>
+          <h2>小埋通行证</h2>
+          <p class="form-intro">输入账号和密码，回到你的写作补给站吧。</p>
           <form id="login-form">
             <div class="form-field">
               <label for="login-username">用户名</label>
-              <input id="login-username" autocomplete="username" required placeholder="请输入用户名">
+              <input id="login-username" autocomplete="username" required placeholder="输入用户名，准备开写啦">
             </div>
             <div class="form-field">
               <label for="login-password">密码</label>
-              <input id="login-password" type="password" autocomplete="current-password" required placeholder="请输入密码">
+              <input id="login-password" type="password" autocomplete="current-password" required placeholder="输入密码，偷偷确认身份">
             </div>
-            <button class="primary-btn" type="submit">登录系统</button>
+            <button class="primary-btn" type="submit">开门进入小窝</button>
           </form>
           <div id="login-status" class="status" aria-live="polite"></div>
           <div class="switch-link">
-            还没有账号？<button type="button" id="show-register">立即注册</button>
+            还没有小窝账号？<button type="button" id="show-register">领取一个</button>
           </div>
         </div>
 
         <div class="form-panel" id="register-panel">
-          <h2>注册用户</h2>
-          <p class="form-intro">注册后默认是普通用户，管理员可在后台调整身份。</p>
+          <h2>领取小窝账号</h2>
+          <p class="form-intro">填好信息，就能拥有自己的博客角落。</p>
           <form id="register-form">
             <div class="form-field">
               <label for="register-username">用户名</label>
-              <input id="register-username" autocomplete="username" required placeholder="请输入用户名">
+              <input id="register-username" autocomplete="username" required placeholder="输入用户名，准备开写啦">
             </div>
             <div class="form-field">
-              <label for="register-nickname">昵称</label>
-              <input id="register-nickname" required placeholder="请输入昵称">
+              <label for="register-email">邮箱</label>
+              <input id="register-email" type="email" autocomplete="email" required placeholder="输入邮箱，方便找回小窝钥匙">
             </div>
             <div class="form-field">
               <label for="register-password">密码</label>
-              <input id="register-password" type="password" autocomplete="new-password" required placeholder="请输入密码">
+              <input id="register-password" type="password" autocomplete="new-password" required placeholder="输入密码，偷偷确认身份">
             </div>
-            <button class="primary-btn" type="submit">注册普通用户</button>
+            <button class="primary-btn" type="submit">登记成为小伙伴</button>
           </form>
           <div id="register-status" class="status" aria-live="polite"></div>
           <div class="switch-link">
-            已有账号？<button type="button" id="show-login">返回登录</button>
+            已经有小窝钥匙？<button type="button" id="show-login">回到登录入口</button>
           </div>
         </div>
-      </div>
-
-      <div class="demo-tip">
-        测试账号：<strong>admin / 123456</strong> 或 <strong>user / 123456</strong>
       </div>
     </section>
   </main>
@@ -336,7 +330,7 @@
         try {
           response = await fetch(API_BASE + path, Object.assign({ headers: { 'Content-Type': 'application/json' } }, options || {}));
         } catch (error) {
-          throw new Error('无法连接后端服务，请确认 npm run web 已启动');
+          throw new Error('后端小窝还没开门，请确认 npm run web 已启动');
         }
         const json = await response.json();
         if (!response.ok || !json.success) throw new Error(json.message || '请求失败');
@@ -345,7 +339,7 @@
 
       loginForm.addEventListener('submit', async function (event) {
         event.preventDefault();
-        setStatus(loginStatus, '正在校验账号...');
+        setStatus(loginStatus, '正在给小埋递通行证...');
         try {
           const data = await request('/auth/login', {
             method: 'POST',
@@ -355,7 +349,7 @@
             })
           });
           saveSession(data);
-          setStatus(loginStatus, '登录成功，正在进入对应页面');
+          setStatus(loginStatus, '欢迎回来，正在带你进入工作区');
           setTimeout(() => redirectByRole(data.user), 260);
         } catch (error) {
           setStatus(loginStatus, error.message);
@@ -364,17 +358,17 @@
 
       registerForm.addEventListener('submit', async function (event) {
         event.preventDefault();
-        setStatus(registerStatus, '正在写入数据库...');
+        setStatus(registerStatus, '正在把小伙伴写入数据库...');
         try {
           await request('/auth/register', {
             method: 'POST',
             body: JSON.stringify({
               username: document.getElementById('register-username').value.trim(),
-              nickname: document.getElementById('register-nickname').value.trim(),
+              email: document.getElementById('register-email').value.trim(),
               password: document.getElementById('register-password').value
             })
           });
-          setStatus(registerStatus, '注册成功，即将返回登录');
+          setStatus(registerStatus, '注册成功，马上带你回登录入口');
           setTimeout(() => {
             switchPanel(registerPanel, loginPanel);
             registerForm.reset();

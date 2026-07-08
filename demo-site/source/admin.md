@@ -1,9 +1,9 @@
 ---
 title: 管理员后台
 permalink: admin.html
-cover: /images/post/git.jpg
-coverWidth: 1200
-coverHeight: 320
+cover: /images/background/gongzuotai.jpg
+coverWidth: 1920
+coverHeight: 760
 ---
 
 <link rel="stylesheet" href="/blog-system.css">
@@ -32,7 +32,7 @@ coverHeight: 320
     <div id="admin-stats" class="stats-grid"></div>
   </div>
 
-  <div class="blog-panel">
+  <div class="blog-panel" id="users">
     <div class="panel-heading">
       <div>
         <p class="section-kicker">账号</p>
@@ -43,7 +43,7 @@ coverHeight: 320
     <div id="admin-users" class="admin-list"></div>
   </div>
 
-  <div class="blog-panel">
+  <div class="blog-panel" id="articles">
     <div class="panel-heading">
       <div>
         <p class="section-kicker">内容</p>
@@ -54,7 +54,7 @@ coverHeight: 320
     <div id="admin-articles" class="admin-list"></div>
   </div>
 
-  <div class="blog-panel">
+  <div class="blog-panel" id="comments">
     <div class="panel-heading">
       <div>
         <p class="section-kicker">互动</p>
@@ -65,11 +65,11 @@ coverHeight: 320
     <div id="admin-comments" class="admin-list"></div>
   </div>
 
-  <div class="blog-panel">
+  <div class="blog-panel" id="categories">
     <div class="panel-heading compact-heading">
       <div>
         <p class="section-kicker">分类</p>
-        <h2>分类管理</h2>
+        <h2 id="category-manage">分类管理</h2>
       </div>
     </div>
     <form id="category-form" class="blog-form inline-form">
@@ -80,11 +80,11 @@ coverHeight: 320
     <div id="admin-categories" class="admin-list compact-list"></div>
   </div>
 
-  <div class="blog-panel">
+  <div class="blog-panel" id="tags">
     <div class="panel-heading compact-heading">
       <div>
         <p class="section-kicker">标签</p>
-        <h2>标签管理</h2>
+        <h2 id="tag-manage">标签管理</h2>
       </div>
     </div>
     <form id="tag-form" class="blog-form inline-form">
@@ -94,12 +94,12 @@ coverHeight: 320
     <div id="admin-tags" class="tag-zone"></div>
   </div>
 
-  <div class="blog-panel">
+  <div class="blog-panel" id="ai-logs">
     <div class="panel-heading">
       <div>
         <p class="section-kicker">AI</p>
-        <h2>AI 使用记录</h2>
-        <p class="blog-muted">文章大纲、摘要、标签推荐、评论审核和博客问答都会写入 ai_usage_logs 表。</p>
+        <h2 id="ai-log-manage">AI 使用记录</h2>
+        <p class="blog-muted">小埋会把大纲、摘要、标签推荐、评论审核和博客问答都记到 ai_usage_logs 表里，DeepSeek 的思考过程也会一起留档，方便管理员回看。</p>
       </div>
     </div>
     <div id="admin-ai-logs" class="admin-list"></div>

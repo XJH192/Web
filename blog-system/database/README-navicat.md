@@ -24,7 +24,7 @@ D:\hexo-theme-tangyuxian\blog-system\database\schema.sql
 | articles | 文章表 | id, author_id, category_id, title, content, status, view_count | 属于一个用户和一个分类 |
 | article_tags | 文章标签关联表 | article_id, tag_id | 文章和标签多对多 |
 | comments | 评论表 | id, article_id, user_id, parent_id, content, status | 支持评论回复和 AI 审核状态 |
-| ai_usage_logs | AI 使用日志表 | id, user_id, feature, prompt, result | 记录大纲、摘要、标签推荐、评论审核、问答 |
+| ai_usage_logs | AI 使用日志表 | id, user_id, feature, prompt, thinking, result | 记录大纲、摘要、标签推荐、评论审核、问答和 DeepSeek 思考过程 |
 
 ## 后端连接配置
 

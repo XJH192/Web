@@ -26,13 +26,16 @@ public class AuthService {
     public User register(RegisterRequest request) {
         requireText(request.getUsername(), "请输入用户名");
         requireText(request.getPassword(), "请输入密码");
+        requireText(request.getEmail(), "请输入邮箱");
         if (repository.findUserByUsername(request.getUsername()) != null) {
             throw new BusinessException("用户名已存在");
         }
-        String nickname = request.getNickname() == null || request.getNickname().trim().isEmpty()
-                ? request.getUsername().trim()
-                : request.getNickname().trim();
-        return repository.saveUser(new User(null, request.getUsername().trim(), request.getPassword(), nickname, Role.USER, LocalDateTime.now()));
+        String email = request.getEmail().trim();
+        if (!email.contains("@")) throw new BusinessException("请输入正确的邮箱");
+        String nickname = request.getUsername().trim();
+        User user = new User(null, request.getUsername().trim(), request.getPassword(), nickname, Role.USER, LocalDateTime.now());
+        user.setEmail(email);
+        return repository.saveUser(user);
     }
 
     public LoginResponse login(AuthRequest request) {

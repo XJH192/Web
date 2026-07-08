@@ -5,7 +5,7 @@ tags:
   - Hexo
   - Spring Boot
 categories:
-  - 系统说明
+  - 项目指南
 cover: /images/post/JavaScript.jpg
 coverWidth: 1200
 coverHeight: 320

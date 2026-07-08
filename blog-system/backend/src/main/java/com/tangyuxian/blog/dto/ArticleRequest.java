@@ -10,6 +10,7 @@ public class ArticleRequest {
     private String summary;
     private String content;
     private Long categoryId;
+    private String categoryName;
     private List<Long> tagIds = new ArrayList<Long>();
     private List<String> tagNames = new ArrayList<String>();
     private List<ArticleAttachment> attachments = new ArrayList<ArticleAttachment>();
@@ -23,6 +24,8 @@ public class ArticleRequest {
     public void setContent(String content) { this.content = content; }
     public Long getCategoryId() { return categoryId; }
     public void setCategoryId(Long categoryId) { this.categoryId = categoryId; }
+    public String getCategoryName() { return categoryName; }
+    public void setCategoryName(String categoryName) { this.categoryName = categoryName; }
     public List<Long> getTagIds() { return tagIds; }
     public void setTagIds(List<Long> tagIds) { this.tagIds = tagIds; }
     public List<String> getTagNames() { return tagNames; }

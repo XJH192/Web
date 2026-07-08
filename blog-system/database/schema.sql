@@ -13,6 +13,7 @@ SET FOREIGN_KEY_CHECKS = 0;
 DROP TABLE IF EXISTS ai_usage_logs;
 DROP TABLE IF EXISTS notifications;
 DROP TABLE IF EXISTS comments;
+DROP TABLE IF EXISTS article_attachments;
 DROP TABLE IF EXISTS article_likes;
 DROP TABLE IF EXISTS article_tags;
 DROP TABLE IF EXISTS articles;
@@ -27,6 +28,7 @@ CREATE TABLE users (
   username VARCHAR(50) NOT NULL COMMENT '登录用户名',
   password VARCHAR(100) NOT NULL COMMENT '登录密码，课程原型暂存明文',
   nickname VARCHAR(80) NOT NULL COMMENT '昵称',
+  email VARCHAR(120) DEFAULT NULL COMMENT '邮箱',
   role VARCHAR(20) NOT NULL DEFAULT 'USER' COMMENT '角色：USER/ADMIN',
   banned TINYINT(1) NOT NULL DEFAULT 0 COMMENT '是否封禁：0正常/1封禁',
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
@@ -79,7 +81,21 @@ CREATE TABLE articles (
   CONSTRAINT fk_articles_category FOREIGN KEY (category_id) REFERENCES categories (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='文章表';
 
--- 5. 文章标签关联表：文章与标签的多对多关系。
+
+-- 5. 文章附件表：保存图片、PPT、PDF、Word 等上传文件。
+CREATE TABLE article_attachments (
+  id BIGINT NOT NULL AUTO_INCREMENT COMMENT '附件ID',
+  article_id BIGINT NOT NULL COMMENT '文章ID',
+  name VARCHAR(255) NOT NULL COMMENT '文件名',
+  file_type VARCHAR(120) DEFAULT NULL COMMENT '文件类型',
+  file_size BIGINT NOT NULL DEFAULT 0 COMMENT '文件大小',
+  data_url LONGTEXT NOT NULL COMMENT '文件数据，课程原型使用 Data URL 保存',
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  PRIMARY KEY (id),
+  KEY idx_article_attachments_article (article_id),
+  CONSTRAINT fk_article_attachments_article FOREIGN KEY (article_id) REFERENCES articles (id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='文章附件表';
+-- 6. 文章标签关联表：文章与标签的多对多关系。
 CREATE TABLE article_tags (
   article_id BIGINT NOT NULL COMMENT '文章ID',
   tag_id BIGINT NOT NULL COMMENT '标签ID',
@@ -89,7 +105,7 @@ CREATE TABLE article_tags (
   CONSTRAINT fk_article_tags_tag FOREIGN KEY (tag_id) REFERENCES tags (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='文章标签关联表';
 
--- 6. 文章点赞表：记录用户对已上架文章的点赞。
+-- 7. 文章点赞表：记录用户对已上架文章的点赞。
 CREATE TABLE article_likes (
   article_id BIGINT NOT NULL COMMENT '文章ID',
   user_id BIGINT NOT NULL COMMENT '点赞用户ID',
@@ -100,7 +116,7 @@ CREATE TABLE article_likes (
   CONSTRAINT fk_article_likes_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='文章点赞表';
 
--- 7. 评论表：支持评论和回复，并保存 AI 审核结果，管理员审核后才公开显示。
+-- 8. 评论表：支持评论和回复，并保存 AI 审核结果，管理员审核后才公开显示。
 CREATE TABLE comments (
   id BIGINT NOT NULL AUTO_INCREMENT COMMENT '评论ID',
   article_id BIGINT NOT NULL COMMENT '文章ID',
@@ -121,7 +137,7 @@ CREATE TABLE comments (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='评论与回复表';
 
 
--- 8. 通知消息表：保存文章审核、评论、点赞等未读消息。
+-- 9. 通知消息表：保存文章审核、评论、点赞等未读消息。
 CREATE TABLE notifications (
   id BIGINT NOT NULL AUTO_INCREMENT COMMENT '通知ID',
   user_id BIGINT NOT NULL COMMENT '接收用户ID',
@@ -136,12 +152,13 @@ CREATE TABLE notifications (
   KEY idx_notifications_created (created_at),
   CONSTRAINT fk_notifications_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='通知消息表';
--- 9. AI 使用日志表：记录摘要、大纲、标签推荐、评论审核和问答调用。
+-- 10. AI 使用日志表：记录摘要、大纲、标签推荐、评论审核和问答调用。
 CREATE TABLE ai_usage_logs (
   id BIGINT NOT NULL AUTO_INCREMENT COMMENT '日志ID',
   user_id BIGINT DEFAULT NULL COMMENT '调用用户ID，当前本地规则模拟可为空',
   feature VARCHAR(50) NOT NULL COMMENT 'AI 功能名称',
   prompt TEXT COMMENT '输入内容',
+  thinking TEXT COMMENT 'AI思考过程或处理摘要',
   result TEXT COMMENT '输出结果',
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   PRIMARY KEY (id),
@@ -152,9 +169,9 @@ CREATE TABLE ai_usage_logs (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='AI 功能调用记录表';
 
 -- 初始账号：admin/123456、user/123456。
-INSERT INTO users(username, password, nickname, role, banned) VALUES
-('admin', '123456', '管理员', 'ADMIN', 0),
-('user', '123456', '普通用户', 'USER', 0);
+INSERT INTO users(username, password, nickname, email, role, banned) VALUES
+('admin', '123456', '管理员', 'admin@xjh.local', 'ADMIN', 0),
+('user', '123456', '普通用户', 'user@xjh.local', 'USER', 0);
 
 INSERT INTO categories(name, description) VALUES
 ('技术随笔', '记录 Web、Java 与前端开发内容'),
