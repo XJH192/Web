@@ -13,7 +13,7 @@ coverHeight: 320
 author: 博客系统
 ---
 
-前端仍然使用 Hexo 和 xjh 主题生成静态页面，动态数据通过浏览器请求 Spring Boot 接口获得。
+前端仍然使用 Hexo 和 Ciallo～(∠・ω< )⌒☆ 主题生成静态页面，动态数据通过浏览器请求 Spring Boot 接口获得。
 
 ## 接口调用方式
 

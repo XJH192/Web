@@ -48,7 +48,7 @@ coverHeight: 760
       <div>
         <p class="section-kicker">内容</p>
         <h2>文章审核与管理</h2>
-        <p class="blog-muted">普通用户提交的文章默认待审核。通过后才会上架到用户首页。</p>
+        <p class="blog-muted">AI 初审正常的文章会直接上架；这里只需重点判断 AI 标记为疑似问题的待审核文章。</p>
       </div>
     </div>
     <div id="admin-articles" class="admin-list"></div>
@@ -59,7 +59,7 @@ coverHeight: 760
       <div>
         <p class="section-kicker">互动</p>
         <h2>评论审核</h2>
-        <p class="blog-muted">不合规评论可下架或删除，也可以封禁发布用户。</p>
+        <p class="blog-muted">AI 初审正常的评论会直接公开；疑似问题评论进入待审核，可由管理员通过、下架或删除。</p>
       </div>
     </div>
     <div id="admin-comments" class="admin-list"></div>

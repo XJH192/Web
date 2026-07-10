@@ -103,10 +103,10 @@ window.onload = function() {
     function ensureSidebar() {
         const drawer = document.getElementById('drawer');
         if (!drawer) return null;
-        let box = document.getElementById('xjh-dynamic-sidebar');
+        let box = document.getElementById('ciallo-dynamic-sidebar');
         if (box) return box;
         box = document.createElement('div');
-        box.id = 'xjh-dynamic-sidebar';
+        box.id = 'ciallo-dynamic-sidebar';
         const menu = drawer.querySelector('.nexmoe-list');
         if (menu && menu.parentNode) menu.insertAdjacentElement('afterend', box);
         else drawer.appendChild(box);
@@ -116,6 +116,16 @@ window.onload = function() {
     function yearOf(value) {
         const match = String(value || '').match(/^\d{4}/);
         return match ? match[0] : '未归档';
+    }
+
+    function monthOf(value) {
+        const match = String(value || '').match(/^\d{4}-(\d{2})/);
+        return match ? match[1] : '00';
+    }
+
+    function readSidebarUser() {
+        try { return JSON.parse(localStorage.getItem('blogUser') || 'null'); }
+        catch (error) { return null; }
     }
 
     function countBy(items, getter) {
@@ -128,8 +138,11 @@ window.onload = function() {
         return map;
     }
 
-    async function fetchJson(path) {
-        const response = await fetch(API_BASE + path);
+    async function fetchJson(path, useToken) {
+        const headers = {};
+        const token = localStorage.getItem('blogToken') || '';
+        if (useToken && token) headers['X-Token'] = token;
+        const response = await fetch(API_BASE + path, { headers: headers });
         const json = await response.json();
         if (!response.ok || !json.success) throw new Error(json.message || '请求失败');
         return json.data || [];
@@ -141,46 +154,64 @@ window.onload = function() {
         const tags = sidebarData.tags || [];
         const articles = sidebarData.articles || [];
         const tagCount = new Map();
+        const categoryCount = new Map();
         articles.forEach(article => {
             (article.tagNames || []).forEach(name => tagCount.set(name, (tagCount.get(name) || 0) + 1));
+            if (article.categoryName) categoryCount.set(article.categoryName, (categoryCount.get(article.categoryName) || 0) + 1);
+        });
+        const usedTags = Array.from(tagCount.keys()).map(name => {
+            const taxonomy = tags.find(tag => String(tag.name).toLowerCase() === String(name).toLowerCase());
+            return { name: name, id: taxonomy ? taxonomy.id : '' };
         });
         const writingTags = editorTags
-            .filter(name => name && !tags.some(tag => String(tag.name).toLowerCase() === String(name).toLowerCase()))
+            .filter(name => name && !usedTags.some(tag => String(tag.name).toLowerCase() === String(name).toLowerCase()))
             .map(name => ({ name: name, id: '', writing: true }));
-        const shownTags = writingTags.concat(tags).slice(0, 28);
-        const yearCount = Array.from(countBy(articles, article => yearOf(article.createdAt)).entries())
+        const shownTags = writingTags.concat(usedTags).slice(0, 28);
+        const archiveCount = Array.from(countBy(articles, article => yearOf(article.createdAt) + '-' + monthOf(article.createdAt)).entries())
             .sort((a, b) => String(b[0]).localeCompare(String(a[0])));
         const latest = articles.slice().sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || ''))).slice(0, 6);
+        const articleCountNode = document.getElementById('ciallo-sidebar-article-count');
+        const tagCountNode = document.getElementById('ciallo-sidebar-tag-count');
+        const categoryCountNode = document.getElementById('ciallo-sidebar-category-count');
+        if (articleCountNode) articleCountNode.textContent = articles.length;
+        if (tagCountNode) tagCountNode.textContent = tagCount.size;
+        if (categoryCountNode) categoryCountNode.textContent = categoryCount.size;
 
         box.innerHTML = `
-          <div class="nexmoe-widget-wrap xjh-live-widget">
+          <div class="nexmoe-widget-wrap ciallo-live-widget">
             <h3 class="nexmoe-widget-title">文章标签</h3>
-            <div class="xjh-live-tags">
+            <div class="ciallo-live-tags">
               ${shownTags.length ? shownTags.map((tag, index) => {
                 const label = escapeHtml(tag.name);
                 const count = tagCount.get(tag.name) || 0;
-                const href = tag.id ? `/archives.html?tagId=${encodeURIComponent(tag.id)}#xjh-db-archives` : '/archives.html';
-                return `<a class="xjh-live-tag color-${index % 8}${tag.writing ? ' is-writing' : ''}" href="${href}" title="${label}"># ${label}${count ? `<span>${count}</span>` : ''}</a>`;
-              }).join('') : '<span class="xjh-widget-empty">暂无标签</span>'}
+                const href = tag.id ? `/archives.html?tagId=${encodeURIComponent(tag.id)}#ciallo-db-archives` : '/archives.html';
+                return `<a class="ciallo-live-tag color-${index % 8}${tag.writing ? ' is-writing' : ''}" href="${href}" title="${label}"># ${label}${count ? `<span>${count}</span>` : ''}</a>`;
+              }).join('') : '<span class="ciallo-widget-empty">暂无标签</span>'}
             </div>
           </div>
-          <div class="nexmoe-widget-wrap xjh-live-widget">
+          <div class="nexmoe-widget-wrap ciallo-live-widget">
             <h3 class="nexmoe-widget-title">文章归档</h3>
-            <ul class="xjh-archive-list">
-              ${yearCount.length ? yearCount.map(item => `<li><a href="/archives.html?year=${encodeURIComponent(item[0])}#xjh-db-archives">${escapeHtml(item[0])}<span>${item[1]}</span></a></li>`).join('') : '<li><span class="xjh-widget-empty">暂无归档</span></li>'}
+            <ul class="ciallo-archive-list">
+              ${archiveCount.length ? archiveCount.map(item => {
+                const parts = String(item[0]).split('-');
+                const label = parts[0] + ' 年 ' + parts[1] + ' 月';
+                return `<li><a href="/archives.html?year=${encodeURIComponent(parts[0])}&month=${encodeURIComponent(parts[1])}#ciallo-db-archives">${escapeHtml(label)}<span>${item[1]}</span></a></li>`;
+              }).join('') : '<li><span class="ciallo-widget-empty">暂无归档</span></li>'}
             </ul>
           </div>
-          <div class="nexmoe-widget-wrap xjh-live-widget">
+          <div class="nexmoe-widget-wrap ciallo-live-widget">
             <h3 class="nexmoe-widget-title">最新文章</h3>
-            <ul class="xjh-latest-list">
-              ${latest.length ? latest.map(article => `<li><a href="/article.html?id=${encodeURIComponent(article.id)}" title="${escapeHtml(article.title)}">${escapeHtml(article.title)}</a></li>`).join('') : '<li><span class="xjh-widget-empty">暂无上架文章</span></li>'}
+            <ul class="ciallo-latest-list">
+              ${latest.length ? latest.map(article => `<li><a href="/article.html?id=${encodeURIComponent(article.id)}" title="${escapeHtml(article.title)}">${escapeHtml(article.title)}</a></li>`).join('') : '<li><span class="ciallo-widget-empty">暂无上架文章</span></li>'}
             </ul>
           </div>`;
     }
 
     async function refreshSidebar() {
         try {
-            const result = await Promise.all([fetchJson('/tags'), fetchJson('/categories'), fetchJson('/articles')]);
+            const user = readSidebarUser();
+            const articlePath = user ? (user.role === 'ADMIN' ? '/admin/articles' : '/articles/mine') : '/articles';
+            const result = await Promise.all([fetchJson('/tags'), fetchJson('/categories'), fetchJson(articlePath, Boolean(user))]);
             sidebarData = { tags: result[0] || [], categories: result[1] || [], articles: result[2] || [] };
             renderSidebar();
         } catch (error) {
@@ -188,8 +219,8 @@ window.onload = function() {
         }
     }
 
-    window.refreshXjhSidebar = refreshSidebar;
-    window.addEventListener('xjh:editor-tags', event => {
+    window.refreshCialloSidebar = refreshSidebar;
+    window.addEventListener('ciallo:editor-tags', event => {
         editorTags = Array.isArray(event.detail) ? event.detail : [];
         renderSidebar();
     });

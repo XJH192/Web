@@ -26,7 +26,7 @@ const { yellow } = require('./util/console');
 
 function checkConfig(hexo) {
     if (!process.argv.includes('--tangyuxian-dont-check-config')) {
-        console.info('[xjh] Checking theme configurations');
+        console.info('[Ciallo～(∠・ω< )⌒☆] Checking theme configurations');
 
         const themeSiteCfg = path.join(hexo.base_dir, '_config.tangyuxian.yml');
         const themeDirCfg = path.join(hexo.theme_dir, '_config.yml');

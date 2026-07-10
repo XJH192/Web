@@ -1,7 +1,7 @@
 <div class="nexmoe-widget-wrap">
   <div class="nexmoe-widget nexmoe-social">
     <% for (name in options.social) { const href = options.social[name][0]; const isMail = String(href).indexOf('mailto:') === 0; %><a
-      class="mdui-ripple <%= isMail ? 'xjh-mail-link' : '' %>"
+      class="mdui-ripple <%= isMail ? 'ciallo-mail-link' : '' %>"
       href="<%- url_for(href) -%>"
       target="<%= isMail ? '_self' : '_blank' %>"
       data-email="<%= isMail ? String(href).replace('mailto:', '') : '' %>"
@@ -15,28 +15,28 @@
     </a><% } %>
   </div>
 </div>
-<div id="xjh-email-modal" class="xjh-email-modal" aria-hidden="true">
-  <div class="xjh-email-dialog" role="dialog" aria-modal="true" aria-labelledby="xjh-email-title">
-    <button type="button" class="xjh-email-close" aria-label="关闭邮箱弹窗">×</button>
-    <span class="xjh-email-label">邮箱联系</span>
-    <h3 id="xjh-email-title">我的邮箱</h3>
+<div id="ciallo-email-modal" class="ciallo-email-modal" aria-hidden="true">
+  <div class="ciallo-email-dialog" role="dialog" aria-modal="true" aria-labelledby="ciallo-email-title">
+    <button type="button" class="ciallo-email-close" aria-label="关闭邮箱弹窗">×</button>
+    <span class="ciallo-email-label">邮箱联系</span>
+    <h3 id="ciallo-email-title">我的邮箱</h3>
     <p>复制或记录下面的邮箱即可联系我。</p>
-    <strong id="xjh-email-value">706972112@qq.com</strong>
-    <div class="xjh-email-actions">
-      <button type="button" id="xjh-email-copy">复制邮箱</button>
-      <a id="xjh-email-open" href="mailto:706972112@qq.com">打开邮件</a>
+    <strong id="ciallo-email-value">706972112@qq.com</strong>
+    <div class="ciallo-email-actions">
+      <button type="button" id="ciallo-email-copy">复制邮箱</button>
+      <a id="ciallo-email-open" href="mailto:706972112@qq.com">打开邮件</a>
     </div>
   </div>
 </div>
 <script>
   (function () {
-    const modal = document.getElementById('xjh-email-modal');
+    const modal = document.getElementById('ciallo-email-modal');
     if (!modal) return;
     if (modal.parentNode !== document.body) document.body.appendChild(modal);
-    const value = document.getElementById('xjh-email-value');
-    const copy = document.getElementById('xjh-email-copy');
-    const open = document.getElementById('xjh-email-open');
-    const close = modal.querySelector('.xjh-email-close');
+    const value = document.getElementById('ciallo-email-value');
+    const copy = document.getElementById('ciallo-email-copy');
+    const open = document.getElementById('ciallo-email-open');
+    const close = modal.querySelector('.ciallo-email-close');
     let lastFocus = null;
 
     function show(email) {
@@ -46,26 +46,26 @@
       open.href = 'mailto:' + finalEmail;
       modal.classList.add('is-visible');
       modal.setAttribute('aria-hidden', 'false');
-      document.body.classList.add('xjh-email-open');
+      document.body.classList.add('ciallo-email-open');
       document.body.style.overflow = 'hidden';
       close.focus();
     }
     function hide() {
       modal.classList.remove('is-visible');
       modal.setAttribute('aria-hidden', 'true');
-      document.body.classList.remove('xjh-email-open');
+      document.body.classList.remove('ciallo-email-open');
       document.body.style.overflow = '';
       if (lastFocus && lastFocus.focus) lastFocus.focus();
     }
 
     document.addEventListener('click', function (event) {
-      const link = event.target.closest('.xjh-mail-link');
+      const link = event.target.closest('.ciallo-mail-link');
       if (link) {
         event.preventDefault();
         show(link.getAttribute('data-email'));
         return;
       }
-      if (event.target === modal || event.target.closest('.xjh-email-close')) hide();
+      if (event.target === modal || event.target.closest('.ciallo-email-close')) hide();
     });
     document.addEventListener('keydown', function (event) {
       if (event.key === 'Escape' && modal.classList.contains('is-visible')) hide();
@@ -81,7 +81,7 @@
   }());
 </script>
 <style>
-  .xjh-email-modal {
+  .ciallo-email-modal {
     position: fixed;
     inset: 0;
     z-index: 1200;
@@ -95,8 +95,8 @@
     visibility: hidden;
     transition: opacity .18s ease, visibility .18s ease;
   }
-  .xjh-email-modal.is-visible { opacity: 1; visibility: visible; }
-  .xjh-email-dialog {
+  .ciallo-email-modal.is-visible { opacity: 1; visibility: visible; }
+  .ciallo-email-dialog {
     position: relative;
     width: min(380px, calc(100vw - 32px));
     border: 1px solid rgba(230, 114, 73, .24);
@@ -108,8 +108,8 @@
     transform: translateY(10px) scale(.98);
     transition: transform .18s ease;
   }
-  .xjh-email-modal.is-visible .xjh-email-dialog { transform: translateY(0) scale(1); }
-  .xjh-email-close {
+  .ciallo-email-modal.is-visible .ciallo-email-dialog { transform: translateY(0) scale(1); }
+  .ciallo-email-close {
     position: absolute;
     top: 12px;
     right: 12px;
@@ -123,8 +123,8 @@
     font-size: 21px;
     line-height: 1;
   }
-  .xjh-email-close:hover { background: rgba(230, 114, 73, .18); }
-  .xjh-email-label {
+  .ciallo-email-close:hover { background: rgba(230, 114, 73, .18); }
+  .ciallo-email-label {
     display: inline-flex;
     margin-bottom: 8px;
     border-radius: 999px;
@@ -134,9 +134,9 @@
     font-size: 12px;
     font-weight: 750;
   }
-  .xjh-email-dialog h3 { margin: 0; color: #2f241f; font-size: 22px; line-height: 1.25; }
-  .xjh-email-dialog p { margin: 8px 0 14px; color: #665247; line-height: 1.7; }
-  .xjh-email-dialog strong {
+  .ciallo-email-dialog h3 { margin: 0; color: #2f241f; font-size: 22px; line-height: 1.25; }
+  .ciallo-email-dialog p { margin: 8px 0 14px; color: #665247; line-height: 1.7; }
+  .ciallo-email-dialog strong {
     display: block;
     border: 1px solid rgba(230, 114, 73, .2);
     border-radius: 10px;
@@ -146,9 +146,9 @@
     font-size: 18px;
     word-break: break-all;
   }
-  .xjh-email-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
-  .xjh-email-actions button,
-  .xjh-email-actions a {
+  .ciallo-email-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
+  .ciallo-email-actions button,
+  .ciallo-email-actions a {
     min-height: 38px;
     border: 0;
     border-radius: 9px;
@@ -164,9 +164,9 @@
     font-weight: 750;
     text-decoration: none;
   }
-  .xjh-email-actions a { background: rgba(230, 114, 73, .12); color: #c95531; }
+  .ciallo-email-actions a { background: rgba(230, 114, 73, .12); color: #c95531; }
   @media (prefers-reduced-motion: reduce) {
-    .xjh-email-modal,
-    .xjh-email-dialog { transition: none; }
+    .ciallo-email-modal,
+    .ciallo-email-dialog { transition: none; }
   }
 </style>

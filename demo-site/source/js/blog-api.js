@@ -58,6 +58,7 @@
       AI_SUMMARY: 'AI 摘要生成',
       AI_TAGS: 'AI 标签推荐',
       AI_CATEGORY: 'AI 分类推荐',
+      AI_ARTICLE_REVIEW: 'AI 文章审核',
       AI_REMOTE_ERROR: 'AI 远程调用错误',
       AI_COMMENT_REVIEW: 'AI 评论审核',
       AI_QA: 'AI 博客问答'
@@ -66,8 +67,11 @@
   }
   function reviewText(value) {
     if (!value) return '未审核';
-    if (value.indexOf('PASS') === 0) return 'AI 初审通过：普通评论';
-    if (value.indexOf('REJECT') === 0) return value.replace('REJECT:', 'AI 初审拒绝：');
+    if (value.indexOf('PASS') === 0) return value.replace('PASS:', 'AI 初审通过：');
+    if (value.indexOf('REVIEW') === 0) return value.replace('REVIEW:', 'AI 标记风险，等待人工判断：');
+    if (value.indexOf('REJECT') === 0) return value.replace('REJECT:', '历史 AI 拒绝记录：');
+    if (value.indexOf('SKIP') === 0) return value.replace('SKIP:', '未执行 AI 初审：');
+    if (value.indexOf('MANUAL') === 0) return value.replace('MANUAL:', '人工处理：');
     return value;
   }
   function formatDate(value) {
@@ -77,6 +81,16 @@
   function userLine(user) {
     if (!user) return '未登录';
     return `${user.nickname || user.username}（${roleText(user.role)}${user.banned ? '，已封禁' : ''}）`;
+  }
+  function userProfileLink(userId, label, className) {
+    if (!userId) return escapeHtml(label || '用户');
+    return `<a class="${escapeHtml(className || 'user-profile-link')}" href="/user.html?id=${encodeURIComponent(userId)}">${escapeHtml(label || '用户')}</a>`;
+  }
+  function safeGalleryImageUrl(value) {
+    const url = String(value || '');
+    if (/^data:image\/(jpeg|png|webp|gif);base64,/i.test(url)) return url;
+    if (/^\/images\/[a-z0-9_./-]+$/i.test(url)) return url;
+    return '#';
   }
   function loginUrl() {
     return '/login.html?redirect=' + encodeURIComponent(location.pathname + location.search);
@@ -298,7 +312,7 @@
     box.innerHTML = names.length
       ? names.map(name => `<span class="tag-pill">${escapeHtml(name)}</span>`).join('')
       : '<span class="blog-muted">暂未填写标签，可手动输入或点击 AI 推荐。</span>';
-    try { window.dispatchEvent(new CustomEvent('xjh:editor-tags', { detail: names })); } catch (error) { }
+    try { window.dispatchEvent(new CustomEvent('ciallo:editor-tags', { detail: names })); } catch (error) { }
   }
   function normalizeAttachments(value) {
     return Array.isArray(value) ? value.filter(item => item && item.name && item.dataUrl) : [];
@@ -385,6 +399,61 @@
       <span>${liked ? '已点赞' : '点赞'} ${article.likeCount || 0}</span>
     </button>`;
   }
+  function followButton(article) {
+    const currentUser = state.currentUser || storedUser();
+    if (!currentUser || String(currentUser.id) === String(article.authorId)) return '';
+    const following = !!article.authorFollowedByCurrentUser;
+    const mutual = !!article.mutualFollowWithAuthor;
+    const label = mutual ? '已互关' : (following ? '已关注' : '关注');
+    return `<button type="button" class="secondary follow-button ${following ? 'is-following' : ''} ${mutual ? 'is-mutual' : ''}" data-follow-user="${article.authorId}" data-following="${following ? 'true' : 'false'}" aria-pressed="${following ? 'true' : 'false'}">${label}</button>`;
+  }
+  function authorSocialRow(article) {
+    return `<div class="article-author-row">
+      <span class="article-meta">作者：${userProfileLink(article.authorId, article.authorName, 'article-author-link')} · <span class="follower-count">粉丝 ${article.authorFollowerCount || 0}</span></span>
+      ${followButton(article)}
+    </div>`;
+  }
+  function mergeAuthorFollowStatus(article, status) {
+    return Object.assign({}, article, {
+      authorFollowerCount: status.followerCount || 0,
+      authorFollowedByCurrentUser: !!status.followedByCurrentUser,
+      mutualFollowWithAuthor: !!status.mutualFollow
+    });
+  }
+  function commentLikeButton(comment, articleId) {
+    const liked = !!comment.likedByCurrentUser;
+    return `<button type="button" class="secondary comment-like-btn ${liked ? 'is-liked' : ''}" data-like-comment="${comment.id}" data-comment-liked="${liked ? 'true' : 'false'}" data-comment-article="${articleId || comment.articleId}" aria-pressed="${liked ? 'true' : 'false'}">${liked ? '已赞' : '点赞'} ${comment.likeCount || 0}</button>`;
+  }
+  function buildCommentTree(comments) {
+    const items = (comments || []).slice().sort((a, b) => Number(a.id || 0) - Number(b.id || 0));
+    const byId = new Map();
+    const roots = [];
+    items.forEach(function (comment) {
+      byId.set(String(comment.id), Object.assign({}, comment, { children: [] }));
+    });
+    byId.forEach(function (comment) {
+      const parentId = comment.parentId == null ? '' : String(comment.parentId);
+      const parent = parentId ? byId.get(parentId) : null;
+      if (parent && parent.id !== comment.id) parent.children.push(comment);
+      else roots.push(comment);
+    });
+    return roots;
+  }
+  function renderCommentItem(comment, depth, articleId, allowReply) {
+    const children = comment.children || [];
+    const replyText = comment.parentId ? ` 回复 #${comment.parentId}` : '';
+    const replyButton = allowReply ? `<button type="button" class="secondary" data-reply="${comment.id}" data-reply-name="${escapeHtml(comment.nickname || '')}">回复</button>` : '';
+    return `<div class="comment-item ${depth ? 'nested-comment' : ''}" data-comment-id="${comment.id}">
+      <p>${escapeHtml(comment.content)}</p>
+      <p class="comment-meta">#${comment.id}${replyText} ${userProfileLink(comment.userId, comment.nickname, 'comment-author-link')} | ${formatDate(comment.createdAt)} | ${escapeHtml(reviewText(comment.aiReviewResult))}</p>
+      <div class="comment-actions">${commentLikeButton(comment, articleId)}${replyButton}</div>
+      ${children.length ? `<div class="comment-children">${children.map(child => renderCommentItem(child, depth + 1, articleId, allowReply)).join('')}</div>` : ''}
+    </div>`;
+  }
+  function renderCommentTree(comments, articleId, allowReply) {
+    const roots = buildCommentTree(comments);
+    return roots.length ? roots.map(item => renderCommentItem(item, 0, articleId, allowReply)).join('') : '<p class="blog-muted">暂无已通过评论。</p>';
+  }
   function showNoticeModal(title, items, onClose) {
     const list = Array.isArray(items) ? items : [];
     if (!list.length) return;
@@ -445,52 +514,255 @@
     if (close) close.focus();
   }
   async function showUnreadNotifications(title) {
-    try {
-      const items = await api('/notifications?unread=true');
-      if (items && items.length) {
-        showNoticeModal(title || '你有新消息', items, function () {
-          api('/notifications/read', { method: 'PUT' }).catch(function () {});
-        });
+    await updateNotificationIndicators();
+  }
+  function ensureNotificationBadgeStyle() {
+    if (document.getElementById('ciallo-notification-badge-style')) return;
+    const style = document.createElement('style');
+    style.id = 'ciallo-notification-badge-style';
+    style.textContent = `
+      .sidebar-notification-label {
+        position: relative;
+        display: inline-block;
       }
-    } catch (error) {}
+      .sidebar-notification-dot {
+        position: absolute;
+        display: block;
+        left: 100%;
+        top: 50%;
+        width: 8px;
+        height: 8px;
+        margin-left: 8px;
+        transform: translateY(-50%);
+        border-radius: 999px;
+        background: #d92d20;
+        box-shadow: 0 0 0 3px rgba(217,45,32,.12);
+      }
+      .sidebar-notification-dot.is-hidden { display: none; }
+    `;
+    document.head.appendChild(style);
+  }
+  function markNotificationMenu(count) {
+    ensureNotificationBadgeStyle();
+    document.querySelectorAll('[data-notification-entry]').forEach(function (link) {
+      const dot = link.querySelector('.sidebar-notification-dot');
+      if (!dot) return;
+      if (count > 0) {
+        dot.classList.remove('is-hidden');
+        dot.setAttribute('aria-hidden', 'false');
+        link.setAttribute('title', '动态与通知：' + count + ' 条未读消息');
+      } else {
+        dot.classList.add('is-hidden');
+        dot.setAttribute('aria-hidden', 'true');
+        link.setAttribute('title', '动态');
+      }
+    });
+  }
+  const APPROVED_NOTIFICATION_TYPES = [
+    'ARTICLE_LIKED',
+    'ARTICLE_REJECTED',
+    'COMMENT_REJECTED',
+    'ARTICLE_COMMENTED',
+    'COMMENT_REPLIED',
+    'COMMENT_LIKED',
+    'USER_FOLLOWED',
+    'USER_ARTICLE_PUBLISHED',
+    'PRIVATE_MESSAGE',
+    'ARTICLE_DELETED'
+  ];
+  function approvedNotifications(items) {
+    return (Array.isArray(items) ? items : []).filter(function (item) {
+      return item && APPROVED_NOTIFICATION_TYPES.indexOf(item.type) >= 0;
+    });
+  }
+  async function unreadNotifications() {
+    if (!token()) return [];
+    try {
+      return approvedNotifications(await api('/notifications?unread=true'));
+    } catch (error) {
+      return [];
+    }
+  }
+  async function updateNotificationIndicators() {
+    const unread = await unreadNotifications();
+    const count = unread.length || 0;
+    markNotificationMenu(count);
+    const countEl = $('notification-unread-count');
+    if (countEl) countEl.textContent = count > 0 ? count + ' 条未读' : '暂无未读';
+    return count;
+  }
+  function notificationLink(item) {
+    if (item.type === 'USER_FOLLOWED') return '';
+    return item.link
+      ? `<a href="${escapeHtml(item.link)}" data-notification-id="${escapeHtml(item.id)}" data-notification-read="${item.readFlag ? 'true' : 'false'}">查看</a>`
+      : '';
+  }
+  function notificationContent(item) {
+    if (item.actorUserId && item.actorUsername) {
+      const content = String(item.content || '');
+      const suffix = content.indexOf(item.actorUsername) === 0 ? content.slice(String(item.actorUsername).length) : (' ' + content);
+      return `<a class="notification-user-link" href="/user.html?id=${encodeURIComponent(item.actorUserId)}" data-notification-id="${escapeHtml(item.id)}" data-notification-read="${item.readFlag ? 'true' : 'false'}">${escapeHtml(item.actorUsername)}</a>${escapeHtml(suffix)}`;
+    }
+    return escapeHtml(item.content || '');
+  }
+  function renderNotificationList(items) {
+    const list = $('notification-list');
+    if (!list) return;
+    const rows = approvedNotifications(items);
+    list.innerHTML = rows.length ? rows.map(function (item) {
+      return `<article class="notification-card ${item.readFlag ? '' : 'is-unread'}">
+        <div>
+          <strong>${escapeHtml(item.title || '新消息')}</strong>
+        </div>
+        <p>${notificationContent(item)}</p>
+        <small>${formatDate(item.createdAt)} ${notificationLink(item)}</small>
+      </article>`;
+    }).join('') : '<p class="notification-empty">暂无通知。</p>';
+  }
+  async function loadNotificationPanel() {
+    const status = $('notification-status');
+    try {
+      if (!token()) {
+        if (status) status.textContent = '登录后可查看评论、回复、关注动态、点赞和私信通知。';
+        renderNotificationList([]);
+        markNotificationMenu(0);
+        return;
+      }
+      if (status) status.textContent = '正在加载通知...';
+      const items = await api('/notifications?unread=false');
+      renderNotificationList(items || []);
+      const count = await updateNotificationIndicators();
+      if (status) status.textContent = count > 0 ? '有新的未读互动通知。' : '暂无新的互动通知。';
+    } catch (error) {
+      if (status) status.textContent = error.message;
+    }
+  }
+  function initNotificationPage() {
+    loadNotificationPanel();
+    const refresh = $('notification-refresh');
+    const markRead = $('notification-mark-read');
+    const list = $('notification-list');
+    if (refresh) refresh.addEventListener('click', loadNotificationPanel);
+    if (list) list.addEventListener('click', async function (event) {
+      const link = event.target.closest('a[data-notification-id]');
+      if (!link || !list.contains(link)) return;
+      event.preventDefault();
+      const destination = link.href;
+      const notificationId = link.getAttribute('data-notification-id');
+      try {
+        if (notificationId && link.getAttribute('data-notification-read') !== 'true') {
+          await api('/notifications/' + encodeURIComponent(notificationId) + '/read', { method: 'PUT' });
+        }
+      } catch (error) {
+        console.warn('标记通知已读失败：', error);
+      } finally {
+        window.location.href = destination;
+      }
+    });
+    if (markRead) markRead.addEventListener('click', async function () {
+      const status = $('notification-status');
+      try {
+        if (status) status.textContent = '正在标记已读...';
+        await api('/notifications/read', { method: 'PUT' });
+        await loadNotificationPanel();
+      } catch (error) {
+        if (status) status.textContent = error.message;
+      }
+    });
   }
   function showAdminReviewNotice(articles, comments) {
-    if (sessionStorage.getItem('xjhAdminReviewNoticeShown')) return;
+    if (sessionStorage.getItem('cialloAdminReviewNoticeShown')) return;
     const pendingArticles = (articles || []).filter(item => item.status === 'PENDING');
     const pendingComments = (comments || []).filter(item => item.status === 'PENDING');
     const items = pendingArticles.slice(0, 4).map(item => ({ title: '待审核博客', content: `《${item.title}》等待审核上架`, link: '/admin.html#articles', createdAt: item.createdAt }))
       .concat(pendingComments.slice(0, 4).map(item => ({ title: '待审核评论', content: `${item.nickname || '用户'} 评论了《${item.articleTitle || '文章'}》`, link: '/admin.html#comments', createdAt: item.createdAt })));
     if (!items.length) return;
-    sessionStorage.setItem('xjhAdminReviewNoticeShown', '1');
+    sessionStorage.setItem('cialloAdminReviewNoticeShown', '1');
     showNoticeModal('后台有待审核内容', items);
   }
+  function cleanArticleHeading(value) {
+    return String(value || '')
+      .replace(/<[^>]+>/g, '')
+      .replace(/!\[([^\]]*)\]\([^)]+\)/g, '$1')
+      .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+      .replace(/^[*_`~\s]+|[*_`~#\s]+$/g, '')
+      .trim();
+  }
+
+  function detectArticleHeading(lines, index) {
+    const text = String(lines[index] || '').trim();
+    if (!text) return null;
+    const next = String(lines[index + 1] || '').trim();
+    const markdown = text.match(/^(#{1,6})\s*(.+?)\s*#*$/);
+    if (markdown) return { title: cleanArticleHeading(markdown[2]), level: Math.min(4, markdown[1].length + 1), consume: 1 };
+    const html = text.match(/^<h([1-6])(?:\s[^>]*)?>([\s\S]*?)<\/h\1>$/i);
+    if (html) return { title: cleanArticleHeading(html[2]), level: Math.min(4, Number(html[1]) + 1), consume: 1 };
+    if (/^(?:=+|-+)$/.test(next) && next.length >= 3) {
+      return { title: cleanArticleHeading(text), level: next.charAt(0) === '=' ? 2 : 3, consume: 2 };
+    }
+    const arabic = text.match(/^(\d+(?:\.\d+)*)(?:[、.)．]\s*|\s+)(.+)$/);
+    if (arabic) {
+      return { title: cleanArticleHeading(arabic[2]), level: Math.min(4, 1 + arabic[1].split('.').length), consume: 1 };
+    }
+    const chinese = text.match(/^(第[一二三四五六七八九十百千万0-9]+[章节部分篇]|[一二三四五六七八九十百]+[、.．]|[（(][一二三四五六七八九十百0-9]+[）)])\s*(.+)$/);
+    if (chinese) {
+      const nested = /^[（(]/.test(chinese[1]);
+      return { title: cleanArticleHeading(chinese[2]), level: nested ? 3 : 2, consume: 1 };
+    }
+    const bold = text.match(/^(?:\*\*|__)(.+?)(?:\*\*|__)$/);
+    if (bold) return { title: cleanArticleHeading(bold[1]), level: 2, consume: 1 };
+    if (/^.{2,32}[：:]$/.test(text)) return { title: cleanArticleHeading(text.replace(/[：:]$/, '')), level: 2, consume: 1 };
+    const previousBlank = index === 0 || !String(lines[index - 1] || '').trim();
+    const nextBlank = index === lines.length - 1 || !next;
+    if (previousBlank && nextBlank && text.length <= 32 && !/[。！？.!?；;，,]$/.test(text)) {
+      return { title: cleanArticleHeading(text), level: 2, consume: 1 };
+    }
+    return null;
+  }
+
   function renderArticleContent(content, attachments) {
     const lines = String(content || '').split(/\r?\n/);
     const toc = [];
     const parts = [];
-    lines.forEach(function (line) {
+    const paragraphs = [];
+    for (let index = 0; index < lines.length;) {
+      const line = lines[index];
       const text = line.trim();
-      if (!text) return;
-      const heading = text.match(/^(#{1,4})\s+(.+)$/);
-      const numbered = text.match(/^([0-9]+[.、]\s*)(.+)$/);
-      if (heading || numbered) {
-        const title = heading ? heading[2].trim() : numbered[2].trim();
-        const level = heading ? Math.min(4, heading[1].length + 1) : 2;
-        const id = 'article-section-' + toc.length;
-        toc.push({ id: id, title: title });
-        parts.push(`<h${level} id="${id}">${escapeHtml(title)}</h${level}>`);
-      } else {
-        parts.push(`<p>${escapeHtml(line)}</p>`);
+      if (!text) {
+        index += 1;
+        continue;
       }
-    });
+      const heading = detectArticleHeading(lines, index);
+      if (heading && heading.title) {
+        const id = 'article-section-' + toc.length;
+        toc.push({ id: id, title: heading.title, level: heading.level });
+        parts.push(`<h${heading.level} id="${id}">${escapeHtml(heading.title)}</h${heading.level}>`);
+        index += heading.consume;
+        continue;
+      }
+      const partIndex = parts.length;
+      parts.push(`<p>${escapeHtml(line)}</p>`);
+      paragraphs.push({ partIndex: partIndex, text: cleanArticleHeading(text) });
+      index += 1;
+    }
     if (!parts.length) parts.push('<p class="blog-muted">暂无正文内容。</p>');
     if (!toc.length) {
-      toc.push({ id: 'article-body-start', title: '正文内容' });
-      parts.unshift('<h2 id="article-body-start">正文内容</h2>');
+      const candidates = paragraphs.filter(item => item.text.length >= 6).slice(0, 8);
+      if (candidates.length >= 2) {
+        candidates.forEach(function (item, candidateIndex) {
+          const id = 'article-paragraph-' + candidateIndex;
+          const title = textPreview(item.text, 28);
+          toc.push({ id: id, title: title, level: 2 });
+          parts[item.partIndex] = parts[item.partIndex].replace('<p>', `<p id="${id}">`);
+        });
+      } else {
+        toc.push({ id: 'article-body-start', title: '正文内容', level: 2 });
+        parts.unshift('<h2 id="article-body-start">正文内容</h2>');
+      }
     }
     const attachmentHtml = renderArticleAttachments(attachments);
-    if (attachmentHtml) toc.push({ id: 'article-attachments-section', title: '文章附件' });
-    const tocHtml = `<nav class="article-inline-toc" aria-label="文章目录"><strong>文章目录</strong>${toc.map(item => `<a href="#${item.id}" data-article-toc>${escapeHtml(item.title)}</a>`).join('')}</nav>`;
+    if (attachmentHtml) toc.push({ id: 'article-attachments-section', title: '文章附件', level: 2 });
+    const tocHtml = `<nav class="article-inline-toc" aria-label="文章目录"><strong>文章目录</strong>${toc.map(item => `<a class="toc-level-${item.level || 2}" href="#${item.id}" data-article-toc>${escapeHtml(item.title)}</a>`).join('')}</nav>`;
     return `<div class="article-detail-layout"><div class="article-content-body">${parts.join('')}${attachmentHtml}</div>${tocHtml}</div>`;
   }
 
@@ -524,7 +796,13 @@
       return;
     }
     if (data.answer) {
-      target.innerHTML = `<strong>回答</strong><p>${escapeHtml(data.answer)}</p>`;
+      const sourceItems = Array.isArray(data.sources)
+        ? uniqueNames(data.sources.map(item => String(item || '').trim()).filter(Boolean))
+        : [];
+      const sources = sourceItems.length
+        ? `<div class="blog-muted"><strong>依据文章</strong><ul>${sourceItems.map(item => `<li>《${escapeHtml(item)}》</li>`).join('')}</ul></div>`
+        : '';
+      target.innerHTML = `<strong>回答</strong><p>${escapeHtml(data.answer)}</p>${sources}`;
       return;
     }
     target.textContent = JSON.stringify(data, null, 2);
@@ -603,12 +881,263 @@
     applyRoleNavigation(user);
     await loadTaxonomy();
 
-    $('blog-user-summary').textContent = `当前用户：${userLine(user)}。提交后的文章需要管理员审核，通过后才会显示到首页。`;
+    let myFollowStatus = null;
+    async function refreshOwnSocialCounts() {
+      try {
+        myFollowStatus = await api('/users/' + user.id + '/follow-status');
+        if ($('blog-following-count')) $('blog-following-count').textContent = myFollowStatus.followingCount || 0;
+        if ($('blog-follower-count')) $('blog-follower-count').textContent = myFollowStatus.followerCount || 0;
+      } catch (error) {
+        myFollowStatus = null;
+      }
+    }
+    await refreshOwnSocialCounts();
+    const socialSummary = myFollowStatus ? `粉丝 ${myFollowStatus.followerCount || 0}，关注 ${myFollowStatus.followingCount || 0}。` : '';
+    $('blog-user-summary').textContent = `当前用户：${userLine(user)}。${socialSummary}文章和评论会先经过 AI 初审，正常内容直接公开，疑似问题再交管理员判断。`;
     renderTaxonomyControls();
     applyHomeFiltersFromUrl();
     setTagInput([]);
     state.editorAttachments = [];
     renderAttachments();
+    const localArticleDraftKey = 'cialloLocalArticleDraft:' + user.id;
+
+    function localDraftStatus(text) {
+      const target = $('local-article-draft-status');
+      if (target) target.textContent = text || '';
+    }
+
+    function saveLocalArticleDraft(payload, sourceArticleId) {
+      const draft = Object.assign({}, payload, {
+        sourceArticleId: sourceArticleId || '',
+        aiInstruction: $('article-ai-instruction') ? $('article-ai-instruction').value : '',
+        savedAt: new Date().toISOString()
+      });
+      try {
+        localStorage.setItem(localArticleDraftKey, JSON.stringify(draft));
+        return { attachmentsOmitted: 0 };
+      } catch (error) {
+        const attachmentCount = (draft.attachments || []).length;
+        draft.attachments = [];
+        draft.attachmentsOmitted = attachmentCount;
+        try {
+          localStorage.setItem(localArticleDraftKey, JSON.stringify(draft));
+          return { attachmentsOmitted: attachmentCount };
+        } catch (fallbackError) {
+          throw new Error('浏览器本地存储空间不足，草稿保存失败，请缩短正文或清理浏览器存储。');
+        }
+      }
+    }
+
+    function clearLocalArticleDraft() {
+      localStorage.removeItem(localArticleDraftKey);
+      localDraftStatus('当前没有本地草稿');
+    }
+
+    function restoreLocalArticleDraft() {
+      let draft = null;
+      try {
+        draft = JSON.parse(localStorage.getItem(localArticleDraftKey) || 'null');
+      } catch (error) {
+        localStorage.removeItem(localArticleDraftKey);
+      }
+      if (!draft) {
+        localDraftStatus('当前没有本地草稿');
+        return false;
+      }
+      $('article-id').value = draft.sourceArticleId || '';
+      $('article-title').value = draft.title || '';
+      $('article-summary').value = draft.summary || '';
+      $('article-content').value = draft.content || '';
+      $('article-status').value = 'DRAFT';
+      setCategoryInput(draft.categoryName || '');
+      setTagInput(draft.tagNames || []);
+      if ($('article-ai-instruction') && draft.aiInstruction) {
+        $('article-ai-instruction').value = draft.aiInstruction;
+      }
+      state.editorAttachments = normalizeAttachments(draft.attachments);
+      renderAttachments();
+      const savedAt = draft.savedAt ? formatDate(draft.savedAt) : '未知时间';
+      const attachmentTip = draft.attachmentsOmitted
+        ? `；另有 ${draft.attachmentsOmitted} 个过大附件未写入本地，请重新选择`
+        : '';
+      localDraftStatus(`已恢复本地草稿，保存于 ${savedAt}${attachmentTip}`);
+      show('blog-status', '已从当前账号的浏览器本地存储恢复草稿');
+      return true;
+    }
+
+    restoreLocalArticleDraft();
+
+    function renderSocialUsers(items) {
+      return (items || []).map(function (item) {
+        const relation = item.ownProfile
+          ? '<span class="status-pill success">你自己</span>'
+          : followButton({
+              authorId: item.id,
+              authorFollowedByCurrentUser: item.followedByCurrentUser,
+              mutualFollowWithAuthor: item.mutualFollow
+            });
+        const messageLink = item.ownProfile ? '' : `<a class="secondary-link social-message-link" href="/messages.html?userId=${item.id}">私信</a>`;
+        return `<article class="social-user-card">
+          <div>
+            <strong>${userProfileLink(item.id, '@' + item.username, 'search-user-link')}</strong>
+            <p>${escapeHtml(item.nickname || item.username)} · 粉丝 ${item.followerCount || 0}${item.mutualFollow ? ' · 已互关' : ''}</p>
+          </div>
+          <div class="social-user-actions">${relation}${messageLink}</div>
+        </article>`;
+      }).join('') || '<p class="blog-muted">这里暂时还没有用户。</p>';
+    }
+
+    function renumberBlogToc() {
+      const root = document.querySelector('.nexmoe-toc > .toc');
+      if (!root) return;
+      let sectionNumber = 0;
+      Array.from(root.children).forEach(function (item) {
+        if (!item.matches('.toc-item') || item.hidden) return;
+        sectionNumber += 1;
+        const link = Array.from(item.children).find(function (child) {
+          return child.matches('a.toc-link');
+        });
+        const number = link && link.querySelector('.toc-number');
+        if (number) number.textContent = sectionNumber + '.';
+        const childList = Array.from(item.children).find(function (child) {
+          return child.matches('.toc-child');
+        });
+        if (!childList) return;
+        Array.from(childList.children).forEach(function (childItem, childIndex) {
+          const childNumber = childItem.querySelector('.toc-number');
+          if (childNumber) childNumber.textContent = sectionNumber + '.' + (childIndex + 1) + '.';
+        });
+      });
+    }
+
+    function syncSocialListToc() {
+      const panel = $('blog-social-panel');
+      const link = document.querySelector('.nexmoe-toc a.toc-link[href="#blog-social-title"]');
+      if (!panel || !link) return;
+      const visible = !panel.hidden;
+      const item = link.closest('.toc-item');
+      link.classList.toggle('social-list-toc-visible', visible);
+      link.setAttribute('aria-hidden', visible ? 'false' : 'true');
+      link.tabIndex = visible ? 0 : -1;
+      if (item) item.hidden = !visible;
+      const text = link.querySelector('.toc-text');
+      if (visible && text) text.textContent = $('blog-social-title').textContent;
+      renumberBlogToc();
+    }
+
+    syncSocialListToc();
+
+    async function loadSocialList(kind) {
+      const isFollowers = kind === 'followers';
+      $('blog-social-title').textContent = isFollowers ? '我的粉丝' : '我的关注';
+      $('blog-social-panel').hidden = false;
+      syncSocialListToc();
+      $('blog-social-list').innerHTML = '<p class="blog-muted">正在加载...</p>';
+      const items = await api('/users/' + user.id + '/' + (isFollowers ? 'followers' : 'following'));
+      $('blog-social-list').innerHTML = renderSocialUsers(items);
+      $('blog-social-panel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    $('blog-social-counts').addEventListener('click', async function (event) {
+      const button = event.target.closest('[data-social-list]');
+      if (!button) return;
+      try {
+        await loadSocialList(button.getAttribute('data-social-list'));
+      } catch (error) {
+        $('blog-social-list').innerHTML = `<p class="blog-muted">${escapeHtml(error.message)}</p>`;
+      }
+    });
+    $('blog-social-close').addEventListener('click', function () {
+      $('blog-social-panel').hidden = true;
+      syncSocialListToc();
+    });
+    $('blog-social-list').addEventListener('click', async function (event) {
+      const button = event.target.closest('[data-follow-user]');
+      if (!button) return;
+      try {
+        const following = button.getAttribute('data-following') === 'true';
+        button.disabled = true;
+        await api('/users/' + button.getAttribute('data-follow-user') + '/follow', { method: following ? 'DELETE' : 'POST' });
+        await refreshOwnSocialCounts();
+        await loadSocialList($('blog-social-title').textContent === '我的粉丝' ? 'followers' : 'following');
+      } catch (error) {
+        show('blog-status', error.message);
+        button.disabled = false;
+      }
+    });
+
+    function renderGlobalSearchResults(result) {
+      const users = result.users || [];
+      const articles = result.articles || [];
+      const userHtml = users.map(function (item) {
+        const relation = item.ownProfile
+          ? '<span class="status-pill success">你自己</span>'
+          : followButton({
+              authorId: item.id,
+              authorFollowedByCurrentUser: item.followedByCurrentUser,
+              mutualFollowWithAuthor: item.mutualFollow
+            });
+        return `<article class="search-user-card">
+          <div>
+            <strong>${userProfileLink(item.id, '@' + item.username, 'search-user-link')}</strong>
+            <p>${escapeHtml(item.nickname || item.username)} · 粉丝 ${item.followerCount || 0}</p>
+          </div>
+          <div class="social-user-actions">
+            ${relation}
+            ${item.ownProfile ? '' : `<a class="secondary-link social-message-link" href="/messages.html?userId=${item.id}">私信</a>`}
+          </div>
+        </article>`;
+      }).join('') || '<p class="blog-muted">没有匹配的用户。</p>';
+      const articleHtml = articles.map(function (article) {
+        return `<article class="search-article-card">
+          <div>
+            <strong><a href="/article.html?id=${article.id}">${escapeHtml(article.title)}</a></strong>
+            <p>作者：${userProfileLink(article.authorId, article.authorName, 'search-user-link')} · ${formatDate(article.createdAt)}</p>
+          </div>
+          <span class="article-meta">${articleStats(article)}</span>
+        </article>`;
+      }).join('') || '<p class="blog-muted">没有匹配的公开文章。</p>';
+      $('global-search-results').innerHTML = `
+        <section><h3>用户 <span>${users.length}</span></h3><div class="global-search-list">${userHtml}</div></section>
+        <section><h3>文章 <span>${articles.length}</span></h3><div class="global-search-list">${articleHtml}</div></section>
+      `;
+      show('global-search-status', `找到 ${users.length} 位用户、${articles.length} 篇文章`);
+    }
+
+    async function runGlobalSearch() {
+      const keyword = $('global-search-input').value.trim();
+      if (!keyword) {
+        $('global-search-results').innerHTML = '';
+        show('global-search-status', '请输入要搜索的用户名、昵称或文章标题');
+        return;
+      }
+      show('global-search-status', '正在搜索...');
+      const result = await api('/search?keyword=' + encodeURIComponent(keyword));
+      renderGlobalSearchResults(result);
+    }
+
+    $('global-search-form').addEventListener('submit', async function (event) {
+      event.preventDefault();
+      try {
+        await runGlobalSearch();
+      } catch (error) {
+        show('global-search-status', error.message);
+      }
+    });
+    $('global-search-results').addEventListener('click', async function (event) {
+      const button = event.target.closest('[data-follow-user]');
+      if (!button) return;
+      try {
+        const following = button.getAttribute('data-following') === 'true';
+        button.disabled = true;
+        await api('/users/' + button.getAttribute('data-follow-user') + '/follow', { method: following ? 'DELETE' : 'POST' });
+        await refreshOwnSocialCounts();
+        await runGlobalSearch();
+      } catch (error) {
+        show('global-search-status', error.message);
+        button.disabled = false;
+      }
+    });
 
     async function loadHomeComments(articleId) {
       const list = document.querySelector(`[data-comment-list="${articleId}"]`);
@@ -616,12 +1145,7 @@
       list.innerHTML = '<p class="blog-muted">正在加载评论...</p>';
       try {
         const comments = await api('/articles/' + articleId + '/comments');
-        list.innerHTML = comments.map(c => `
-          <div class="comment-item feed-comment">
-            <p>${escapeHtml(c.content)}</p>
-            <p class="comment-meta">${escapeHtml(c.nickname)} | ${formatDate(c.createdAt)} | ${escapeHtml(reviewText(c.aiReviewResult))}</p>
-          </div>
-        `).join('') || '<p class="blog-muted">暂无已通过评论。</p>';
+        list.innerHTML = renderCommentTree(comments, articleId, false);
       } catch (error) {
         list.innerHTML = `<p class="blog-muted">${escapeHtml(error.message)}</p>`;
       }
@@ -642,7 +1166,8 @@
               <span class="article-meta">${articleStats(article)}</span>
             </div>
             <h3>${escapeHtml(article.title)}</h3>
-            <p class="article-meta">作者：${escapeHtml(article.authorName)} | 分类：${escapeHtml(article.categoryName)} | ${formatDate(article.createdAt)}</p>
+            ${authorSocialRow(article)}
+            <p class="article-meta">分类：${escapeHtml(article.categoryName)} | ${formatDate(article.createdAt)}</p>
             <p>${escapeHtml(article.summary || textPreview(article.content, 140))}</p>
             <p>${(article.tagNames || []).map(t => `<span class="tag-pill">${escapeHtml(t)}</span>`).join('')}</p>
             ${renderCompactAttachments(article.attachments)}
@@ -653,7 +1178,7 @@
             </div>
             <div class="home-comment-box" data-comment-box="${article.id}">
               <form data-home-comment-form="${article.id}" class="blog-form inline-comment-form">
-                <textarea data-comment-input="${article.id}" required rows="3" placeholder="写下评论，提交后等待管理员审核"></textarea>
+                <textarea data-comment-input="${article.id}" required rows="3" placeholder="写下评论，AI 初审正常会直接公开"></textarea>
                 <button type="submit">提交评论</button>
               </form>
               <div class="blog-status" data-comment-status="${article.id}"></div>
@@ -665,6 +1190,7 @@
       if (pager) {
         pager.innerHTML = totalPages > 1 ? `<button type="button" class="secondary" data-home-page="${state.homePage - 1}" ${state.homePage <= 1 ? 'disabled' : ''}>上一页</button><span>第 ${state.homePage} / ${totalPages} 页</span><button type="button" class="secondary" data-home-page="${state.homePage + 1}" ${state.homePage >= totalPages ? 'disabled' : ''}>下一页</button>` : '';
       }
+      renderSiteMap();
       show('home-status', total ? `共 ${total} 篇已上架文章，当前显示 ${pageArticles.length} 篇` : '暂无已上架文章');
     }
 
@@ -755,8 +1281,13 @@
     });
     $('home-article-list').addEventListener('click', async function (event) {
       const likeButtonEl = event.target.closest('[data-like-article]');
+      const followButtonEl = event.target.closest('[data-follow-user]');
+      const commentLikeButtonEl = event.target.closest('[data-like-comment]');
       const commentsButtonEl = event.target.closest('[data-home-comments]');
       const likeId = likeButtonEl ? likeButtonEl.getAttribute('data-like-article') : null;
+      const followUserId = followButtonEl ? followButtonEl.getAttribute('data-follow-user') : null;
+      const commentLikeId = commentLikeButtonEl ? commentLikeButtonEl.getAttribute('data-like-comment') : null;
+      const commentArticleId = commentLikeButtonEl ? commentLikeButtonEl.getAttribute('data-comment-article') : null;
       const commentsId = commentsButtonEl ? commentsButtonEl.getAttribute('data-home-comments') : null;
       try {
         if (likeId) {
@@ -769,10 +1300,30 @@
           show('home-status', liked ? '已取消点赞' : '点赞成功');
           renderHomeArticles();
         }
+        if (followUserId) {
+          const following = followButtonEl.getAttribute('data-following') === 'true';
+          followButtonEl.disabled = true;
+          const status = await api('/users/' + followUserId + '/follow', { method: following ? 'DELETE' : 'POST' });
+          state.homeArticles = state.homeArticles.map(function (article) {
+            return String(article.authorId) === String(followUserId) ? mergeAuthorFollowStatus(article, status) : article;
+          });
+          show('home-status', status.mutualFollow ? '你们已互相关注' : (status.followedByCurrentUser ? '关注成功' : '已取消关注'));
+          await refreshOwnSocialCounts();
+          renderHomeArticles();
+        }
+        if (commentLikeId) {
+          const liked = commentLikeButtonEl.getAttribute('data-comment-liked') === 'true' || commentLikeButtonEl.classList.contains('is-liked');
+          commentLikeButtonEl.disabled = true;
+          await api('/comments/' + commentLikeId + '/like', { method: liked ? 'DELETE' : 'POST' });
+          show('home-status', liked ? '已取消评论点赞' : '评论点赞成功');
+          if (commentArticleId) await loadHomeComments(commentArticleId);
+        }
         if (commentsId) await loadHomeComments(commentsId);
       } catch (error) {
         show('home-status', error.message);
         if (likeButtonEl) likeButtonEl.disabled = false;
+        if (followButtonEl) followButtonEl.disabled = false;
+        if (commentLikeButtonEl) commentLikeButtonEl.disabled = false;
       }
     });
     $('home-article-list').addEventListener('submit', async function (event) {
@@ -783,12 +1334,17 @@
       const status = document.querySelector(`[data-comment-status="${articleId}"]`);
       try {
         if (status) status.textContent = '评论提交中...';
-        await api('/articles/' + articleId + '/comments', {
+        const comment = await api('/articles/' + articleId + '/comments', {
           method: 'POST',
           body: JSON.stringify({ content: input.value, parentId: null })
         });
         input.value = '';
-        if (status) status.textContent = '评论已提交，等待管理员审核后公开显示。';
+        if (comment.status === 'APPROVED') {
+          if (status) status.textContent = 'AI 初审通过，评论已直接公开。';
+          await loadHomeComments(articleId);
+        } else {
+          if (status) status.textContent = 'AI 发现疑似问题，已转交管理员审核。';
+        }
       } catch (error) {
         if (status) status.textContent = error.message;
       }
@@ -827,6 +1383,7 @@
       setTagInput([]);
       state.editorAttachments = [];
       renderAttachments();
+      clearLocalArticleDraft();
       show('blog-status', '已清空编辑表单');
     });
     $('article-list').addEventListener('click', async function (event) {
@@ -873,8 +1430,18 @@
         status: $('article-status').value
       };
       try {
+        if (payload.status === 'DRAFT') {
+          const result = saveLocalArticleDraft(payload, id);
+          const attachmentTip = result.attachmentsOmitted
+            ? `，正文等内容已保存；${result.attachmentsOmitted} 个附件因体积过大未写入本地`
+            : '，刷新或重新进入工作台会自动恢复';
+          localDraftStatus(`本地草稿保存于 ${new Date().toLocaleString('zh-CN')}`);
+          show('blog-status', '草稿已保存在当前浏览器本地' + attachmentTip);
+          return;
+        }
         show('blog-status', '正在保存到数据库...');
-        await api('/articles' + (id ? '/' + id : ''), { method: id ? 'PUT' : 'POST', body: JSON.stringify(payload) });
+        const savedArticle = await api('/articles' + (id ? '/' + id : ''), { method: id ? 'PUT' : 'POST', body: JSON.stringify(payload) });
+        clearLocalArticleDraft();
         event.target.reset();
         $('article-id').value = '';
         await loadTaxonomy();
@@ -884,8 +1451,11 @@
         state.editorAttachments = [];
         renderAttachments();
         await loadMyArticles();
-        if (window.refreshXjhSidebar) window.refreshXjhSidebar();
-        show('blog-status', payload.status === 'DRAFT' ? '草稿已保存' : '文章已提交审核，管理员通过后会上架首页');
+        if (savedArticle.status === 'PUBLISHED') await loadHomeArticles(true);
+        if (window.refreshCialloSidebar) window.refreshCialloSidebar();
+        show('blog-status', savedArticle.status === 'PUBLISHED'
+          ? 'AI 初审通过，文章已直接发布。'
+          : 'AI 发现疑似问题，已转交管理员审核。');
       } catch (error) {
         show('blog-status', error.message);
       }
@@ -920,7 +1490,8 @@
       const article = await api('/articles/' + id);
       $('article-detail').innerHTML = `
         <h1>${escapeHtml(article.title)}</h1>
-        <p class="article-meta">作者：${escapeHtml(article.authorName)} | 分类：${escapeHtml(article.categoryName)} | ${formatDate(article.createdAt)} | ${articleStats(article)}</p>
+        ${authorSocialRow(article)}
+        <p class="article-meta">分类：${escapeHtml(article.categoryName)} | ${formatDate(article.createdAt)} | ${articleStats(article)}</p>
         <p><span class="status-pill ${statusClass(article.status)}">${statusText(article.status)}</span> ${(article.tagNames || []).map(t => `<span class="tag-pill">${escapeHtml(t)}</span>`).join('')}</p>
         <div class="article-detail-actions">${likeButton(article)}</div>
         ${renderArticleContent(article.content, article.attachments || [])}
@@ -928,16 +1499,23 @@
     }
     async function loadComments() {
       const comments = await api('/articles/' + id + '/comments');
-      $('comment-list').innerHTML = comments.map(c => `
-        <div class="comment-item ${c.parentId ? 'nested-comment' : ''}">
-          <p>${escapeHtml(c.content)}</p>
-          <p class="comment-meta">#${c.id}${c.parentId ? ' 回复 #' + c.parentId : ''} ${escapeHtml(c.nickname)} | ${formatDate(c.createdAt)} | ${escapeHtml(reviewText(c.aiReviewResult))}</p>
-          <button type="button" class="secondary" data-reply="${c.id}">回复</button>
-        </div>
-      `).join('') || '<p class="blog-muted">暂无已通过评论。</p>';
+      $('comment-list').innerHTML = renderCommentTree(comments, id, true);
     }
     $('article-detail').addEventListener('click', async function (event) {
       const likeButtonEl = event.target.closest('[data-like-article]');
+      const followButtonEl = event.target.closest('[data-follow-user]');
+      if (followButtonEl) {
+        try {
+          const following = followButtonEl.getAttribute('data-following') === 'true';
+          followButtonEl.disabled = true;
+          await api('/users/' + followButtonEl.getAttribute('data-follow-user') + '/follow', { method: following ? 'DELETE' : 'POST' });
+          await loadDetail();
+        } catch (error) {
+          alert(error.message);
+          followButtonEl.disabled = false;
+        }
+        return;
+      }
       if (likeButtonEl) {
         try {
           const liked = likeButtonEl.getAttribute('data-liked') === 'true';
@@ -958,23 +1536,45 @@
         target.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }
     });
-    $('comment-list').addEventListener('click', function (event) {
+    $('comment-list').addEventListener('click', async function (event) {
+      const commentLikeButtonEl = event.target.closest('[data-like-comment]');
+      if (commentLikeButtonEl) {
+        try {
+          const liked = commentLikeButtonEl.getAttribute('data-comment-liked') === 'true' || commentLikeButtonEl.classList.contains('is-liked');
+          commentLikeButtonEl.disabled = true;
+          await api('/comments/' + commentLikeButtonEl.getAttribute('data-like-comment') + '/like', { method: liked ? 'DELETE' : 'POST' });
+          show('comment-status', liked ? '已取消评论点赞' : '评论点赞成功');
+          await loadComments();
+        } catch (error) {
+          show('comment-status', error.message);
+          commentLikeButtonEl.disabled = false;
+        }
+        return;
+      }
       const replyId = event.target.getAttribute('data-reply');
       if (!replyId) return;
       $('comment-parent-id').value = replyId;
+      const name = event.target.getAttribute('data-reply-name') || '';
+      show('comment-status', '正在回复 #' + replyId + (name ? ' ' + name : ''));
       $('comment-content').focus();
     });
     $('comment-form').addEventListener('submit', async function (event) {
       event.preventDefault();
       try {
-        await api('/articles/' + id + '/comments', {
+        const comment = await api('/articles/' + id + '/comments', {
           method: 'POST',
           body: JSON.stringify({ content: $('comment-content').value, parentId: $('comment-parent-id').value ? Number($('comment-parent-id').value) : null })
         });
         $('comment-content').value = '';
         $('comment-parent-id').value = '';
-        alert('评论已提交，等待管理员审核后显示。');
+        const message = comment.status === 'APPROVED'
+          ? 'AI 初审通过，评论已直接公开。'
+          : 'AI 发现疑似问题，已转交管理员审核。';
+        show('comment-status', message);
+        if (comment.status === 'APPROVED') await loadComments();
+        alert(message);
       } catch (error) {
+        show('comment-status', error.message);
         alert(error.message);
       }
     });
@@ -987,6 +1587,389 @@
       }
     });
     try { await loadDetail(); await loadComments(); } catch (error) { $('article-detail').textContent = error.message; }
+  }
+
+  async function initUserProfilePage() {
+    const currentUser = await requireLogin();
+    applyRoleNavigation(currentUser);
+    const userId = new URLSearchParams(location.search).get('id');
+    if (!userId) {
+      $('user-profile-card').innerHTML = '<p class="blog-muted">缺少用户编号。</p>';
+      return;
+    }
+
+    function renderProfile(profile) {
+      const privateDataVisible = Boolean(profile.privateDataVisible);
+      const email = privateDataVisible ? (profile.email || '未填写') : (profile.maskedEmail || '未公开');
+      const relation = profile.ownProfile
+        ? '<span class="status-pill success">这是你自己</span>'
+        : followButton({
+            authorId: profile.id,
+            authorFollowedByCurrentUser: profile.followedByCurrentUser,
+            mutualFollowWithAuthor: profile.mutualFollow
+          });
+      const messageLink = profile.ownProfile ? '' : `<a class="blog-link-btn secondary-link" href="/messages.html?userId=${profile.id}">发私信</a>`;
+      $('user-profile-card').innerHTML = `
+        <div class="user-profile-main">
+          <div>
+            <p class="section-kicker">用户 @${escapeHtml(profile.username)}</p>
+            <h1>${escapeHtml(profile.nickname || profile.username)}</h1>
+            <p class="user-profile-email">邮箱：${escapeHtml(email)}</p>
+          </div>
+          <div class="user-profile-relation">${relation}${messageLink}</div>
+        </div>
+        <div class="user-profile-stats">
+          <span><strong>${profile.followerCount || 0}</strong> 粉丝</span>
+          <span><strong>${profile.followingCount || 0}</strong> 关注</span>
+          ${profile.mutualFollow ? '<span class="mutual-follow-label">已互关</span>' : ''}
+        </div>
+        <p class="privacy-note">${privateDataVisible
+          ? (profile.ownProfile
+              ? '当前为本人资料卡，邮箱以完整形式显示。'
+              : '当前为管理员查看，用户邮箱以完整形式显示。')
+          : '隐私保护：邮箱已脱敏；仅展示已上架文章和该用户主动保留在相册中的图片。'}</p>
+      `;
+      const intro = $('user-profile-intro');
+      if (intro) {
+        intro.textContent = privateDataVisible
+          ? '当前权限可查看完整邮箱，同时展示公开文章与个人相册。'
+          : '邮箱经过脱敏处理，展示该用户的公开文章与个人相册。';
+      }
+      const articles = profile.articles || [];
+      $('user-profile-article-summary').textContent = `共 ${articles.length} 篇公开文章`;
+      $('user-profile-articles').innerHTML = articles.map(function (article) {
+        return `<article class="article-card">
+          <div class="article-card-head">
+            <span class="status-pill success">已上架</span>
+            <span class="article-meta">${articleStats(article)}</span>
+          </div>
+          <h3>${escapeHtml(article.title)}</h3>
+          <p class="article-meta">${escapeHtml(article.categoryName)} | ${formatDate(article.createdAt)}</p>
+          <p>${escapeHtml(article.summary || textPreview(article.content, 140))}</p>
+          <p>${(article.tagNames || []).map(t => `<span class="tag-pill">${escapeHtml(t)}</span>`).join('')}</p>
+          <div class="article-actions">
+            <a class="blog-link-btn" href="/article.html?id=${article.id}">查看全文</a>
+          </div>
+        </article>`;
+      }).join('') || '<p class="blog-muted">该用户暂时没有已上架文章。</p>';
+      const photos = profile.photos || [];
+      $('user-profile-photo-summary').textContent = `共 ${photos.length} / 8 张图片`;
+      $('user-profile-photos').innerHTML = photos.map(function (photo) {
+        const imageUrl = escapeHtml(safeGalleryImageUrl(photo.imageDataUrl));
+        const title = escapeHtml(photo.title || '未命名图片');
+        const description = escapeHtml(photo.description || '');
+        return `<article class="managed-gallery-card">
+          <a class="managed-gallery-image" href="${imageUrl}" data-fancybox="profile-gallery" data-caption="${title}${description ? ' · ' + description : ''}">
+            <img src="${imageUrl}" alt="${title}" loading="lazy">
+          </a>
+          <div class="managed-gallery-content">
+            <h3>${title}</h3>
+            ${description ? `<p>${description}</p>` : '<p class="blog-muted">没有填写图片说明。</p>'}
+          </div>
+        </article>`;
+      }).join('') || '<p class="gallery-empty">该用户的相册暂时为空。</p>';
+    }
+
+    async function loadProfile() {
+      const profile = await api('/users/' + encodeURIComponent(userId) + '/profile');
+      renderProfile(profile);
+    }
+
+    $('user-profile-card').addEventListener('click', async function (event) {
+      const button = event.target.closest('[data-follow-user]');
+      if (!button) return;
+      try {
+        const following = button.getAttribute('data-following') === 'true';
+        button.disabled = true;
+        await api('/users/' + encodeURIComponent(userId) + '/follow', { method: following ? 'DELETE' : 'POST' });
+        await loadProfile();
+      } catch (error) {
+        alert(error.message);
+        button.disabled = false;
+      }
+    });
+
+    try {
+      await loadProfile();
+    } catch (error) {
+      $('user-profile-card').innerHTML = `<p class="blog-muted">${escapeHtml(error.message)}</p>`;
+      $('user-profile-articles').innerHTML = '';
+      $('user-profile-photos').innerHTML = '';
+    }
+  }
+
+  async function initGalleryPage() {
+    let currentUser = null;
+    let photos = [];
+    let editingId = null;
+    let selectedImageData = '';
+    const maxImageSize = 6 * 1024 * 1024;
+
+    if (token()) {
+      try {
+        currentUser = await api('/auth/me');
+        state.currentUser = currentUser;
+        applyRoleNavigation(currentUser);
+      } catch (error) {
+        clearSession();
+      }
+    }
+    $('gallery-manager').hidden = !currentUser;
+    $('gallery-login-hint').hidden = !!currentUser;
+
+    function canManage(photo) {
+      return !!currentUser && String(currentUser.id) === String(photo.ownerId);
+    }
+
+    function syncGalleryLimit() {
+      const full = photos.length >= 8;
+      $('gallery-submit').disabled = !editingId && full;
+      $('gallery-file').disabled = !editingId && full;
+      if (!editingId && full) {
+        show('gallery-form-status', '相册已满 8 张，请先删除一张再上传新图片。');
+      }
+    }
+
+    function resetGalleryForm() {
+      editingId = null;
+      selectedImageData = '';
+      $('gallery-form').reset();
+      $('gallery-form-heading').textContent = '上传新图片';
+      $('gallery-submit').textContent = '上传图片';
+      $('gallery-cancel-edit').hidden = true;
+      $('gallery-upload-preview').hidden = true;
+      $('gallery-preview-image').removeAttribute('src');
+      show('gallery-form-status', '');
+      syncGalleryLimit();
+    }
+
+    function showGalleryPreview(url) {
+      $('gallery-preview-image').src = safeGalleryImageUrl(url);
+      $('gallery-upload-preview').hidden = false;
+    }
+
+    function renderGallery() {
+      $('gallery-count').textContent = photos.length + ' / 8 张';
+      $('gallery-photo-grid').innerHTML = photos.map(function (photo) {
+        const imageUrl = escapeHtml(safeGalleryImageUrl(photo.imageDataUrl));
+        const title = escapeHtml(photo.title || '未命名图片');
+        const description = escapeHtml(photo.description || '');
+        const owner = photo.ownerUsername || photo.ownerNickname || '用户';
+        const actions = canManage(photo)
+          ? `<div class="gallery-card-actions">
+              <button type="button" class="secondary" data-edit-gallery-photo="${photo.id}">修改</button>
+              <button type="button" class="danger" data-delete-gallery-photo="${photo.id}">删除</button>
+            </div>`
+          : '';
+        return `<article class="managed-gallery-card">
+          <a class="managed-gallery-image" href="${imageUrl}" data-fancybox="managed-gallery" data-caption="${title}${description ? ' · ' + description : ''}">
+            <img src="${imageUrl}" alt="${title}" loading="lazy">
+          </a>
+          <div class="managed-gallery-content">
+            <h3>${title}</h3>
+            ${description ? `<p>${description}</p>` : '<p class="blog-muted">没有填写图片说明。</p>'}
+            <small>上传者：${userProfileLink(photo.ownerId, '@' + owner, 'gallery-owner-link')} · ${formatDate(photo.updatedAt || photo.createdAt)}</small>
+            ${actions}
+          </div>
+        </article>`;
+      }).join('') || '<p class="gallery-empty">相册还是空的，登录后上传第一张图片吧。</p>';
+      syncGalleryLimit();
+    }
+
+    async function loadGallery() {
+      show('gallery-list-status', '正在加载相册...');
+      photos = await api('/gallery/photos');
+      renderGallery();
+      show('gallery-list-status', photos.length ? '' : '暂时还没有图片。');
+    }
+
+    $('gallery-file').addEventListener('change', function () {
+      const file = this.files && this.files[0];
+      if (!file) {
+        selectedImageData = '';
+        if (!editingId) $('gallery-upload-preview').hidden = true;
+        return;
+      }
+      if (!/^image\/(jpeg|png|webp|gif)$/i.test(file.type)) {
+        this.value = '';
+        show('gallery-form-status', '仅支持 JPG、PNG、WebP 或 GIF 图片。');
+        return;
+      }
+      if (file.size > maxImageSize) {
+        this.value = '';
+        show('gallery-form-status', '图片超过 6MB，请压缩后再上传。');
+        return;
+      }
+      show('gallery-form-status', '正在读取图片...');
+      const reader = new FileReader();
+      reader.onload = function () {
+        selectedImageData = String(reader.result || '');
+        showGalleryPreview(selectedImageData);
+        show('gallery-form-status', '图片已就绪，可以上传。');
+      };
+      reader.onerror = function () {
+        selectedImageData = '';
+        show('gallery-form-status', '图片读取失败，请重新选择。');
+      };
+      reader.readAsDataURL(file);
+    });
+
+    $('gallery-form').addEventListener('submit', async function (event) {
+      event.preventDefault();
+      if (!currentUser) return;
+      if (!editingId && !selectedImageData) {
+        show('gallery-form-status', '请选择要上传的图片。');
+        return;
+      }
+      const payload = {
+        title: $('gallery-title').value.trim(),
+        description: $('gallery-description').value.trim(),
+        imageDataUrl: selectedImageData || null
+      };
+      try {
+        const wasEditing = !!editingId;
+        $('gallery-submit').disabled = true;
+        show('gallery-form-status', editingId ? '正在保存修改...' : '正在上传图片...');
+        await api('/gallery/photos' + (editingId ? '/' + editingId : ''), {
+          method: editingId ? 'PUT' : 'POST',
+          body: JSON.stringify(payload)
+        });
+        resetGalleryForm();
+        await loadGallery();
+        show('gallery-list-status', wasEditing ? '图片修改成功。' : '图片上传成功。');
+      } catch (error) {
+        show('gallery-form-status', error.message);
+      } finally {
+        syncGalleryLimit();
+      }
+    });
+
+    $('gallery-cancel-edit').addEventListener('click', resetGalleryForm);
+
+    $('gallery-photo-grid').addEventListener('click', async function (event) {
+      const editButton = event.target.closest('[data-edit-gallery-photo]');
+      const deleteButton = event.target.closest('[data-delete-gallery-photo]');
+      if (editButton) {
+        const photo = photos.find(function (item) {
+          return String(item.id) === editButton.getAttribute('data-edit-gallery-photo');
+        });
+        if (!photo || !canManage(photo)) return;
+        editingId = photo.id;
+        selectedImageData = '';
+        $('gallery-title').value = photo.title || '';
+        $('gallery-description').value = photo.description || '';
+        $('gallery-file').value = '';
+        $('gallery-form-heading').textContent = '修改图片';
+        $('gallery-submit').textContent = '保存修改';
+        $('gallery-cancel-edit').hidden = false;
+        syncGalleryLimit();
+        showGalleryPreview(photo.imageDataUrl);
+        show('gallery-form-status', '可以修改标题和说明；如需替换图片，再选择一个新文件。');
+        $('gallery-manager').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        return;
+      }
+      if (deleteButton) {
+        const id = deleteButton.getAttribute('data-delete-gallery-photo');
+        const photo = photos.find(function (item) { return String(item.id) === id; });
+        if (!photo || !canManage(photo) || !confirm('确认删除《' + photo.title + '》吗？此操作无法撤销。')) return;
+        try {
+          deleteButton.disabled = true;
+          await api('/gallery/photos/' + encodeURIComponent(id), { method: 'DELETE' });
+          if (String(editingId) === String(id)) resetGalleryForm();
+          await loadGallery();
+          show('gallery-list-status', '图片已删除。');
+        } catch (error) {
+          show('gallery-list-status', error.message);
+          deleteButton.disabled = false;
+        }
+      }
+    });
+
+    if (currentUser) {
+      try {
+        await loadGallery();
+      } catch (error) {
+        show('gallery-list-status', error.message);
+        $('gallery-photo-grid').innerHTML = '<p class="gallery-empty">相册加载失败，请稍后重试。</p>';
+      }
+    } else {
+      $('gallery-count').textContent = '登录后查看';
+      show('gallery-list-status', '请先登录，再查看和管理自己的八张相册图片。');
+      $('gallery-photo-grid').innerHTML = '<p class="gallery-empty">每个账号都有独立相册，登录后即可查看。</p>';
+    }
+  }
+
+  async function initMessagesPage() {
+    const currentUser = await requireLogin();
+    applyRoleNavigation(currentUser);
+    const otherUserId = new URLSearchParams(location.search).get('userId');
+    if (!otherUserId) {
+      $('message-conversation-head').innerHTML = '<p class="blog-muted">请先从用户资料卡选择私信对象。</p>';
+      $('message-form').hidden = true;
+      return;
+    }
+
+    function renderConversation(conversation) {
+      $('message-conversation-head').innerHTML = `
+        <div>
+          <p class="section-kicker">与 ${userProfileLink(conversation.otherUserId, '@' + conversation.otherUsername, 'message-user-link')} 的会话</p>
+          <h2>${escapeHtml(conversation.otherNickname || conversation.otherUsername)}</h2>
+        </div>
+        <span class="status-pill ${conversation.mutualFollow ? 'success' : 'warning'}">${conversation.mutualFollow ? '已互关 · 私信不限量' : '非互关用户'}</span>
+      `;
+      const messages = conversation.messages || [];
+      $('message-list').innerHTML = messages.map(function (message) {
+        const sent = String(message.senderId) === String(currentUser.id);
+        return `<article class="message-bubble ${sent ? 'is-sent' : 'is-received'}">
+          <strong>${sent ? '我' : userProfileLink(message.senderId, message.senderUsername, 'message-user-link')}</strong>
+          <p>${escapeHtml(message.content)}</p>
+          <small>${formatDate(message.createdAt)}${!sent && message.readFlag ? ' · 已读' : ''}</small>
+        </article>`;
+      }).join('') || '<p class="blog-muted">还没有私信，打个招呼吧。</p>';
+      const unlimited = conversation.mutualFollow;
+      const remaining = conversation.remainingMessageCount;
+      $('message-limit-status').textContent = unlimited
+        ? '已互关，发送条数不限'
+        : `非互关用户还可发送 ${remaining} 条（最多 3 条）`;
+      $('message-send-btn').disabled = !unlimited && remaining <= 0;
+      $('message-content').disabled = !unlimited && remaining <= 0;
+      if (!unlimited && remaining <= 0) show('message-status', '已达到非互关用户的 3 条私信上限，互相关注后可继续发送。');
+      requestAnimationFrame(function () {
+        $('message-list').scrollTop = $('message-list').scrollHeight;
+      });
+    }
+
+    async function loadConversation() {
+      const conversation = await api('/messages/' + encodeURIComponent(otherUserId));
+      renderConversation(conversation);
+    }
+
+    $('message-form').addEventListener('submit', async function (event) {
+      event.preventDefault();
+      const content = $('message-content').value.trim();
+      if (!content) return;
+      try {
+        $('message-send-btn').disabled = true;
+        show('message-status', '正在发送...');
+        const conversation = await api('/messages/' + encodeURIComponent(otherUserId), {
+          method: 'POST',
+          body: JSON.stringify({ content: content })
+        });
+        $('message-content').value = '';
+        renderConversation(conversation);
+        show('message-status', '私信已发送，对方会收到通知。');
+      } catch (error) {
+        show('message-status', error.message);
+        $('message-send-btn').disabled = false;
+      }
+    });
+
+    try {
+      await loadConversation();
+    } catch (error) {
+      $('message-conversation-head').innerHTML = `<p class="blog-muted">${escapeHtml(error.message)}</p>`;
+      $('message-form').hidden = true;
+    }
   }
 
   async function initAdminPage() {
@@ -1049,7 +2032,7 @@
         };
         $('admin-stats').innerHTML = Object.keys(statLabels).map(key => `<div class="stat-card"><strong>${statLabels[key]}</strong><br>${stats[key] || 0}</div>`).join('');
         $('admin-users').innerHTML = users.map(u => `<div class="admin-row">
-          <strong>#${u.id} ${escapeHtml(u.username)}</strong>
+          <strong>#${u.id} ${userProfileLink(u.id, u.username, 'search-user-link')}</strong>
           <span>${escapeHtml(u.nickname || u.username)} | ${escapeHtml(u.email || '未填写邮箱')} | ${roleText(u.role)} | <span class="status-pill ${u.banned ? 'danger' : 'success'}">${u.banned ? '已封禁' : '正常'}</span> | 注册时间 ${formatDate(u.createdAt)}</span>
           <div class="admin-row-actions">
             <button type="button" class="secondary" data-user-role="${u.id}" data-role="${u.role === 'ADMIN' ? 'USER' : 'ADMIN'}">设为${u.role === 'ADMIN' ? '普通用户' : '管理员'}</button>
@@ -1059,8 +2042,9 @@
         </div>`).join('') || '<p class="blog-muted">暂无用户。</p>';
         $('admin-articles').innerHTML = articles.map(a => `<div class="admin-row">
           <strong>#${a.id} ${escapeHtml(a.title)}</strong>
-          <span><span class="status-pill ${statusClass(a.status)}">${statusText(a.status)}</span> | 作者 ${escapeHtml(a.authorName)} | ${articleStats(a)} | 附件 ${(a.attachments || []).length}</span>
+          <span><span class="status-pill ${statusClass(a.status)}">${statusText(a.status)}</span> | 作者 ${userProfileLink(a.authorId, a.authorName, 'article-author-link')} | ${articleStats(a)} | 附件 ${(a.attachments || []).length}</span>
           <small>${escapeHtml(textPreview(a.summary || a.content, 150))}</small>
+          <small>${escapeHtml(reviewText(a.aiReviewResult))}</small>
           ${renderCompactAttachments(a.attachments)}
           <div class="admin-row-actions">
             <a class="blog-link-btn" href="/article.html?id=${a.id}">查看</a>
@@ -1072,7 +2056,7 @@
         </div>`).join('') || '<p class="blog-muted">暂无文章。</p>';
         $('admin-comments').innerHTML = comments.map(c => `<div class="admin-row">
           <strong>#${c.id} ${escapeHtml(c.articleTitle || '未知文章')}</strong>
-          <span><span class="status-pill ${statusClass(c.status)}">${statusText(c.status)}</span> | 用户 #${c.userId} ${escapeHtml(c.nickname)} | ${formatDate(c.createdAt)}</span>
+          <span><span class="status-pill ${statusClass(c.status)}">${statusText(c.status)}</span> | 用户 #${c.userId} ${userProfileLink(c.userId, c.nickname, 'comment-author-link')} | ${formatDate(c.createdAt)}</span>
           <p>${escapeHtml(c.content)}</p>
           <small>${escapeHtml(reviewText(c.aiReviewResult))}</small>
           <div class="admin-row-actions">
@@ -1206,9 +2190,14 @@
 
   document.addEventListener('DOMContentLoaded', function () {
     applyRoleNavigation(storedUser());
+    updateNotificationIndicators();
     if ($('login-page')) initLoginPage();
     if ($('blog-page')) initBlogPage();
     if ($('article-page')) initArticlePage();
+    if ($('user-profile-page')) initUserProfilePage();
+    if ($('gallery-page')) initGalleryPage();
+    if ($('messages-page')) initMessagesPage();
+    if ($('notification-page')) initNotificationPage();
     if ($('admin-page')) initAdminPage();
   });
 }());

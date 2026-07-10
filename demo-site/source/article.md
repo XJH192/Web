@@ -13,7 +13,7 @@ coverHeight: 320
     <div>
       <p class="section-kicker">文章</p>
       <h2>阅读与互动</h2>
-      <p class="blog-muted">评论提交后进入管理员审核，通过后会公开显示。</p>
+      <p class="blog-muted">评论先经过 AI 初审，正常内容直接公开，疑似问题再交管理员判断。</p>
     </div>
     <div class="head-actions">
       <a class="blog-link-btn user-only-link" href="/blog.html">返回工作台</a>
@@ -35,7 +35,7 @@ coverHeight: 320
       <textarea id="comment-content" required placeholder="写下评论或回复" rows="4"></textarea>
       <input id="comment-parent-id" placeholder="回复评论编号，可留空">
       <button type="submit">提交评论</button>
-      <p class="blog-muted">提交后会进入管理员审核，审核通过后才会显示。</p>
+      <p id="comment-status" class="blog-muted">AI 初审正常会直接公开，疑似问题会进入管理员审核。</p>
     </form>
   </section>
 

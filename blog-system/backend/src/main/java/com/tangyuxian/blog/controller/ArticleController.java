@@ -67,7 +67,8 @@ public class ArticleController {
     public ApiResponse<Article> create(@RequestHeader(value = "X-Token", required = false) String token,
                                        @RequestBody ArticleRequest request) {
         User user = authService.requireUser(token);
-        return ApiResponse.ok("文章已提交，管理员审核通过后会上架到首页", articleService.create(user, request));
+        Article article = articleService.create(user, request);
+        return ApiResponse.ok(articleMessage(article, false), article);
     }
 
     @PutMapping("/{id}")
@@ -75,7 +76,8 @@ public class ArticleController {
                                        @PathVariable Long id,
                                        @RequestBody ArticleRequest request) {
         User user = authService.requireUser(token);
-        return ApiResponse.ok("文章已更新，非草稿内容需要管理员重新审核", articleService.update(user, id, request));
+        Article article = articleService.update(user, id, request);
+        return ApiResponse.ok(articleMessage(article, true), article);
     }
 
     @DeleteMapping("/{id}")
@@ -98,5 +100,11 @@ public class ArticleController {
                                        @PathVariable Long id) {
         User user = authService.requireUser(token);
         return ApiResponse.ok("已取消点赞", articleService.unlike(user.getId(), id));
+    }
+
+    private String articleMessage(Article article, boolean updated) {
+        if (article.getStatus() == com.tangyuxian.blog.model.ArticleStatus.DRAFT) return updated ? "草稿已更新" : "草稿已保存";
+        if (article.getStatus() == com.tangyuxian.blog.model.ArticleStatus.PUBLISHED) return "AI 初审通过，文章已直接发布";
+        return "AI 初审发现疑似问题，已转交管理员审核";
     }
 }

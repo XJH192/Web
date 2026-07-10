@@ -10,6 +10,7 @@ import com.tangyuxian.blog.model.Category;
 import com.tangyuxian.blog.model.Comment;
 import com.tangyuxian.blog.model.CommentStatus;
 import com.tangyuxian.blog.model.Notification;
+import com.tangyuxian.blog.model.PrivateMessage;
 import com.tangyuxian.blog.model.Role;
 import com.tangyuxian.blog.model.Tag;
 import com.tangyuxian.blog.model.User;
@@ -45,9 +46,18 @@ public class InMemoryBlogRepository {
         tryExecute("ALTER TABLE users ADD COLUMN banned TINYINT(1) NOT NULL DEFAULT 0 COMMENT '是否封禁' AFTER role");
         tryExecute("ALTER TABLE articles ADD COLUMN like_count INT NOT NULL DEFAULT 0 COMMENT '点赞数' AFTER view_count");
         tryExecute("ALTER TABLE articles ADD COLUMN attachments_json LONGTEXT NULL COMMENT '文章附件JSON，保存图片/PPT等上传文件' AFTER content");
+        tryExecute("ALTER TABLE articles ADD COLUMN ai_review_result VARCHAR(500) DEFAULT NULL COMMENT 'AI文章初审结果' AFTER status");
         tryExecute("CREATE TABLE IF NOT EXISTS article_attachments (id BIGINT NOT NULL AUTO_INCREMENT, article_id BIGINT NOT NULL, name VARCHAR(255) NOT NULL, file_type VARCHAR(120) DEFAULT NULL, file_size BIGINT NOT NULL DEFAULT 0, data_url LONGTEXT NOT NULL, created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY(id), KEY idx_article_attachments_article(article_id), CONSTRAINT fk_article_attachments_article FOREIGN KEY(article_id) REFERENCES articles(id) ON DELETE CASCADE) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='文章附件表'");
         tryExecute("CREATE TABLE IF NOT EXISTS notifications (id BIGINT NOT NULL AUTO_INCREMENT, user_id BIGINT NOT NULL, type VARCHAR(40) NOT NULL, title VARCHAR(120) NOT NULL, content VARCHAR(500) NOT NULL, link VARCHAR(255) DEFAULT NULL, read_flag TINYINT(1) NOT NULL DEFAULT 0, created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY(id), KEY idx_notifications_user_read(user_id, read_flag), KEY idx_notifications_created(created_at), CONSTRAINT fk_notifications_user FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='通知消息表'");
+        tryExecute("ALTER TABLE notifications ADD COLUMN actor_user_id BIGINT DEFAULT NULL COMMENT '触发通知的用户ID' AFTER user_id");
+        tryExecute("ALTER TABLE notifications ADD COLUMN actor_username VARCHAR(50) DEFAULT NULL COMMENT '触发通知时的用户名快照' AFTER actor_user_id");
+        tryExecute("ALTER TABLE notifications ADD COLUMN article_id BIGINT DEFAULT NULL COMMENT '关联文章ID' AFTER actor_username");
+        tryExecute("ALTER TABLE notifications ADD KEY idx_notifications_article (article_id)");
+        tryExecute("UPDATE notifications SET article_id=CAST(SUBSTRING_INDEX(SUBSTRING_INDEX(link, 'id=', -1), '#', 1) AS UNSIGNED) WHERE article_id IS NULL AND link LIKE '/article.html?id=%'");
         tryExecute("CREATE TABLE IF NOT EXISTS article_likes (article_id BIGINT NOT NULL COMMENT '文章ID', user_id BIGINT NOT NULL COMMENT '点赞用户ID', created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '点赞时间', PRIMARY KEY(article_id, user_id), KEY idx_article_likes_user(user_id), CONSTRAINT fk_article_likes_article FOREIGN KEY(article_id) REFERENCES articles(id) ON DELETE CASCADE, CONSTRAINT fk_article_likes_user FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='文章点赞表'");
+        tryExecute("CREATE TABLE IF NOT EXISTS comment_likes (comment_id BIGINT NOT NULL COMMENT '评论ID', user_id BIGINT NOT NULL COMMENT '点赞用户ID', created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '点赞时间', PRIMARY KEY(comment_id, user_id), KEY idx_comment_likes_user(user_id), CONSTRAINT fk_comment_likes_comment FOREIGN KEY(comment_id) REFERENCES comments(id) ON DELETE CASCADE, CONSTRAINT fk_comment_likes_user FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='评论点赞表'");
+        tryExecute("CREATE TABLE IF NOT EXISTS user_follows (follower_id BIGINT NOT NULL COMMENT '关注者用户ID', followed_id BIGINT NOT NULL COMMENT '被关注用户ID', created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '关注时间', PRIMARY KEY(follower_id, followed_id), KEY idx_user_follows_followed(followed_id), CONSTRAINT fk_user_follows_follower FOREIGN KEY(follower_id) REFERENCES users(id) ON DELETE CASCADE, CONSTRAINT fk_user_follows_followed FOREIGN KEY(followed_id) REFERENCES users(id) ON DELETE CASCADE) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户关注关系表'");
+        tryExecute("CREATE TABLE IF NOT EXISTS private_messages (id BIGINT NOT NULL AUTO_INCREMENT, sender_id BIGINT NOT NULL, receiver_id BIGINT NOT NULL, content VARCHAR(1000) NOT NULL, read_flag TINYINT(1) NOT NULL DEFAULT 0, created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY(id), KEY idx_private_messages_conversation(sender_id, receiver_id, id), KEY idx_private_messages_receiver_read(receiver_id, read_flag), CONSTRAINT fk_private_messages_sender FOREIGN KEY(sender_id) REFERENCES users(id) ON DELETE CASCADE, CONSTRAINT fk_private_messages_receiver FOREIGN KEY(receiver_id) REFERENCES users(id) ON DELETE CASCADE) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户私信表'");
         tryExecute("ALTER TABLE ai_usage_logs ADD COLUMN thinking TEXT NULL COMMENT 'AI思考过程或处理摘要' AFTER prompt");
     }
 
@@ -142,15 +152,17 @@ public class InMemoryBlogRepository {
         String status = article.getStatus() == null ? ArticleStatus.PENDING.name() : article.getStatus().name();
         if (article.getId() == null) {
             Long id = insertAndReturnId(
-                    "INSERT INTO articles(author_id, category_id, title, summary, content, attachments_json, status, view_count, like_count) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    "INSERT INTO articles(author_id, category_id, title, summary, content, attachments_json, status, ai_review_result, view_count, like_count) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                     article.getAuthorId(), article.getCategoryId(), article.getTitle(), article.getSummary(),
-                    article.getContent(), attachmentsJson(article.getAttachments()), status, article.getViewCount(), article.getLikeCount()
+                    article.getContent(), attachmentsJson(article.getAttachments()), status, article.getAiReviewResult(),
+                    article.getViewCount(), article.getLikeCount()
             );
             article.setId(id);
         } else {
-            jdbc.update("UPDATE articles SET author_id=?, category_id=?, title=?, summary=?, content=?, attachments_json=?, status=?, view_count=?, like_count=? WHERE id=?",
+            jdbc.update("UPDATE articles SET author_id=?, category_id=?, title=?, summary=?, content=?, attachments_json=?, status=?, ai_review_result=?, view_count=?, like_count=? WHERE id=?",
                     article.getAuthorId(), article.getCategoryId(), article.getTitle(), article.getSummary(),
-                    article.getContent(), attachmentsJson(article.getAttachments()), status, article.getViewCount(), article.getLikeCount(), article.getId());
+                    article.getContent(), attachmentsJson(article.getAttachments()), status, article.getAiReviewResult(),
+                    article.getViewCount(), article.getLikeCount(), article.getId());
         }
         replaceArticleTags(article.getId(), article.getTagIds());
         replaceArticleAttachments(article.getId(), article.getAttachments());
@@ -165,8 +177,30 @@ public class InMemoryBlogRepository {
         return jdbc.query(articleSelectSql() + " ORDER BY a.id DESC", articleMapper());
     }
 
-    public void deleteArticle(Long id) {
-        jdbc.update("DELETE FROM articles WHERE id=?", id);
+    public List<Long> listArticleAffectedUserIds(Long articleId) {
+        String link = "/article.html?id=" + articleId;
+        return jdbc.queryForList(
+                "SELECT user_id FROM article_likes WHERE article_id=? " +
+                        "UNION SELECT user_id FROM comments WHERE article_id=? " +
+                        "UNION SELECT cl.user_id FROM comment_likes cl INNER JOIN comments c ON c.id=cl.comment_id WHERE c.article_id=? " +
+                        "UNION SELECT user_id FROM notifications WHERE article_id=? OR link=? OR link=?",
+                Long.class, articleId, articleId, articleId, articleId, link, link + "#comments"
+        );
+    }
+
+    public void deleteNotificationsByArticle(Long articleId) {
+        String link = "/article.html?id=" + articleId;
+        jdbc.update("DELETE FROM notifications WHERE article_id=? OR link=? OR link=?", articleId, link, link + "#comments");
+    }
+
+    public void deleteArticleWithRelations(Long articleId) {
+        deleteNotificationsByArticle(articleId);
+        jdbc.update("DELETE cl FROM comment_likes cl INNER JOIN comments c ON c.id=cl.comment_id WHERE c.article_id=?", articleId);
+        jdbc.update("DELETE FROM comments WHERE article_id=?", articleId);
+        jdbc.update("DELETE FROM article_likes WHERE article_id=?", articleId);
+        jdbc.update("DELETE FROM article_attachments WHERE article_id=?", articleId);
+        jdbc.update("DELETE FROM article_tags WHERE article_id=?", articleId);
+        jdbc.update("DELETE FROM articles WHERE id=?", articleId);
     }
 
     public Comment saveComment(Comment comment) {
@@ -237,6 +271,86 @@ public class InMemoryBlogRepository {
         return total != null && total > 0;
     }
 
+    public int likeComment(Long userId, Long commentId) {
+        int changed = jdbc.update("INSERT IGNORE INTO comment_likes (comment_id, user_id) VALUES (?, ?)", commentId, userId);
+        return changed;
+    }
+
+    public int unlikeComment(Long userId, Long commentId) {
+        return jdbc.update("DELETE FROM comment_likes WHERE comment_id=? AND user_id=?", commentId, userId);
+    }
+
+    public int countCommentLikes(Long commentId) {
+        if (commentId == null) return 0;
+        Integer total = jdbc.queryForObject("SELECT COUNT(*) FROM comment_likes WHERE comment_id=?", Integer.class, commentId);
+        return total == null ? 0 : total;
+    }
+
+    public boolean hasCommentLike(Long userId, Long commentId) {
+        if (userId == null || commentId == null) return false;
+        Integer total = jdbc.queryForObject("SELECT COUNT(*) FROM comment_likes WHERE comment_id=? AND user_id=?", Integer.class, commentId, userId);
+        return total != null && total > 0;
+    }
+
+    public int followUser(Long followerId, Long followedId) {
+        return jdbc.update("INSERT IGNORE INTO user_follows (follower_id, followed_id) VALUES (?, ?)", followerId, followedId);
+    }
+
+    public int unfollowUser(Long followerId, Long followedId) {
+        return jdbc.update("DELETE FROM user_follows WHERE follower_id=? AND followed_id=?", followerId, followedId);
+    }
+
+    public boolean hasUserFollow(Long followerId, Long followedId) {
+        if (followerId == null || followedId == null) return false;
+        Integer total = jdbc.queryForObject("SELECT COUNT(*) FROM user_follows WHERE follower_id=? AND followed_id=?", Integer.class, followerId, followedId);
+        return total != null && total > 0;
+    }
+
+    public int countUserFollowers(Long userId) {
+        Integer total = jdbc.queryForObject("SELECT COUNT(*) FROM user_follows WHERE followed_id=?", Integer.class, userId);
+        return total == null ? 0 : total;
+    }
+
+    public int countUserFollowing(Long userId) {
+        Integer total = jdbc.queryForObject("SELECT COUNT(*) FROM user_follows WHERE follower_id=?", Integer.class, userId);
+        return total == null ? 0 : total;
+    }
+
+    public List<User> listUserFollowers(Long userId) {
+        return jdbc.query("SELECT u.* FROM users u INNER JOIN user_follows f ON u.id=f.follower_id WHERE f.followed_id=? AND u.banned=0 ORDER BY f.created_at DESC", userMapper(), userId);
+    }
+
+    public List<User> listUserFollowing(Long userId) {
+        return jdbc.query("SELECT u.* FROM users u INNER JOIN user_follows f ON u.id=f.followed_id WHERE f.follower_id=? AND u.banned=0 ORDER BY f.created_at DESC", userMapper(), userId);
+    }
+
+    public PrivateMessage savePrivateMessage(PrivateMessage message) {
+        Long id = insertAndReturnId(
+                "INSERT INTO private_messages(sender_id, receiver_id, content, read_flag) VALUES (?, ?, ?, ?)",
+                message.getSenderId(), message.getReceiverId(), message.getContent(), message.isReadFlag()
+        );
+        return findPrivateMessageById(id);
+    }
+
+    public PrivateMessage findPrivateMessageById(Long id) {
+        return queryOne(privateMessageSelectSql() + " WHERE pm.id=?", privateMessageMapper(), id);
+    }
+
+    public List<PrivateMessage> listPrivateMessages(Long firstUserId, Long secondUserId) {
+        return jdbc.query(privateMessageSelectSql() +
+                        " WHERE (pm.sender_id=? AND pm.receiver_id=?) OR (pm.sender_id=? AND pm.receiver_id=?) ORDER BY pm.id ASC LIMIT 200",
+                privateMessageMapper(), firstUserId, secondUserId, secondUserId, firstUserId);
+    }
+
+    public int countPrivateMessagesSent(Long senderId, Long receiverId) {
+        Integer total = jdbc.queryForObject("SELECT COUNT(*) FROM private_messages WHERE sender_id=? AND receiver_id=?", Integer.class, senderId, receiverId);
+        return total == null ? 0 : total;
+    }
+
+    public void markPrivateMessagesRead(Long receiverId, Long senderId) {
+        jdbc.update("UPDATE private_messages SET read_flag=1 WHERE receiver_id=? AND sender_id=? AND read_flag=0", receiverId, senderId);
+    }
+
     public int countApprovedComments(Long articleId) {
         Integer total = jdbc.queryForObject("SELECT COUNT(*) FROM comments WHERE article_id=? AND status='APPROVED'", Integer.class, articleId);
         return total == null ? 0 : total;
@@ -244,16 +358,19 @@ public class InMemoryBlogRepository {
 
     public Notification saveNotification(Notification notification) {
         if (notification == null || notification.getUserId() == null) return notification;
+        if (notification.getArticleId() == null) notification.setArticleId(articleIdFromLink(notification.getLink()));
         if (notification.getId() == null) {
             Long id = insertAndReturnId(
-                    "INSERT INTO notifications(user_id, type, title, content, link, read_flag) VALUES (?, ?, ?, ?, ?, ?)",
-                    notification.getUserId(), notification.getType(), notification.getTitle(), notification.getContent(), notification.getLink(), notification.isReadFlag()
+                    "INSERT INTO notifications(user_id, actor_user_id, actor_username, article_id, type, title, content, link, read_flag) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    notification.getUserId(), notification.getActorUserId(), notification.getActorUsername(), notification.getArticleId(), notification.getType(),
+                    notification.getTitle(), notification.getContent(), notification.getLink(), notification.isReadFlag()
             );
             notification.setId(id);
             return findNotificationById(id);
         }
-        jdbc.update("UPDATE notifications SET user_id=?, type=?, title=?, content=?, link=?, read_flag=? WHERE id=?",
-                notification.getUserId(), notification.getType(), notification.getTitle(), notification.getContent(), notification.getLink(), notification.isReadFlag(), notification.getId());
+        jdbc.update("UPDATE notifications SET user_id=?, actor_user_id=?, actor_username=?, article_id=?, type=?, title=?, content=?, link=?, read_flag=? WHERE id=?",
+                notification.getUserId(), notification.getActorUserId(), notification.getActorUsername(), notification.getArticleId(), notification.getType(),
+                notification.getTitle(), notification.getContent(), notification.getLink(), notification.isReadFlag(), notification.getId());
         return findNotificationById(notification.getId());
     }
 
@@ -270,6 +387,10 @@ public class InMemoryBlogRepository {
 
     public void markNotificationsRead(Long userId) {
         jdbc.update("UPDATE notifications SET read_flag=1 WHERE user_id=? AND read_flag=0", userId);
+    }
+
+    public void markNotificationRead(Long userId, Long notificationId) {
+        jdbc.update("UPDATE notifications SET read_flag=1 WHERE id=? AND user_id=? AND read_flag=0", notificationId, userId);
     }
 
     private void refreshArticleLikeCount(Long articleId) {
@@ -300,7 +421,7 @@ public class InMemoryBlogRepository {
     }
 
     private String articleSelectSql() {
-        return "SELECT a.*, u.nickname AS author_name, c.name AS category_name " +
+        return "SELECT a.*, u.nickname AS author_name, u.username AS author_username, c.name AS category_name " +
                 "FROM articles a " +
                 "LEFT JOIN users u ON a.author_id = u.id " +
                 "LEFT JOIN categories c ON a.category_id = c.id";
@@ -311,6 +432,13 @@ public class InMemoryBlogRepository {
                 "FROM comments cm " +
                 "LEFT JOIN users u ON cm.user_id = u.id " +
                 "LEFT JOIN articles a ON cm.article_id = a.id";
+    }
+
+    private String privateMessageSelectSql() {
+        return "SELECT pm.*, sender.username AS sender_username, receiver.username AS receiver_username " +
+                "FROM private_messages pm " +
+                "LEFT JOIN users sender ON pm.sender_id=sender.id " +
+                "LEFT JOIN users receiver ON pm.receiver_id=receiver.id";
     }
 
     private RowMapper<User> userMapper() {
@@ -358,6 +486,7 @@ public class InMemoryBlogRepository {
                 article.setId(rs.getLong("id"));
                 article.setAuthorId(rs.getLong("author_id"));
                 article.setAuthorName(rs.getString("author_name"));
+                article.setAuthorUsername(rs.getString("author_username"));
                 article.setCategoryId(rs.getLong("category_id"));
                 article.setCategoryName(rs.getString("category_name"));
                 article.setTitle(rs.getString("title"));
@@ -365,6 +494,7 @@ public class InMemoryBlogRepository {
                 article.setContent(rs.getString("content"));
                 article.setAttachments(mergedAttachments(article.getId(), stringColumn(rs, "attachments_json")));
                 article.setStatus(ArticleStatus.valueOf(rs.getString("status")));
+                article.setAiReviewResult(stringColumn(rs, "ai_review_result"));
                 article.setViewCount(rs.getInt("view_count"));
                 article.setLikeCount(intColumn(rs, "like_count"));
                 article.setCommentCount(countApprovedComments(article.getId()));
@@ -391,6 +521,7 @@ public class InMemoryBlogRepository {
                 comment.setContent(rs.getString("content"));
                 comment.setStatus(CommentStatus.valueOf(rs.getString("status")));
                 comment.setAiReviewResult(rs.getString("ai_review_result"));
+                comment.setLikeCount(countCommentLikes(comment.getId()));
                 comment.setCreatedAt(time(rs, "created_at"));
                 return comment;
             }
@@ -418,7 +549,7 @@ public class InMemoryBlogRepository {
         return new RowMapper<Notification>() {
             @Override
             public Notification mapRow(ResultSet rs, int rowNum) throws SQLException {
-                return new Notification(
+                Notification notification = new Notification(
                         rs.getLong("id"),
                         rs.getLong("user_id"),
                         rs.getString("type"),
@@ -428,8 +559,46 @@ public class InMemoryBlogRepository {
                         booleanColumn(rs, "read_flag"),
                         time(rs, "created_at")
                 );
+                notification.setActorUserId(nullableLong(rs, "actor_user_id"));
+                notification.setActorUsername(stringColumn(rs, "actor_username"));
+                notification.setArticleId(nullableLong(rs, "article_id"));
+                return notification;
             }
         };
+    }
+
+    private RowMapper<PrivateMessage> privateMessageMapper() {
+        return new RowMapper<PrivateMessage>() {
+            @Override
+            public PrivateMessage mapRow(ResultSet rs, int rowNum) throws SQLException {
+                PrivateMessage message = new PrivateMessage();
+                message.setId(rs.getLong("id"));
+                message.setSenderId(rs.getLong("sender_id"));
+                message.setSenderUsername(rs.getString("sender_username"));
+                message.setReceiverId(rs.getLong("receiver_id"));
+                message.setReceiverUsername(rs.getString("receiver_username"));
+                message.setContent(rs.getString("content"));
+                message.setReadFlag(booleanColumn(rs, "read_flag"));
+                message.setCreatedAt(time(rs, "created_at"));
+                return message;
+            }
+        };
+    }
+
+    private Long articleIdFromLink(String link) {
+        if (link == null) return null;
+        String marker = "/article.html?id=";
+        int start = link.indexOf(marker);
+        if (start < 0) return null;
+        start += marker.length();
+        int end = start;
+        while (end < link.length() && Character.isDigit(link.charAt(end))) end++;
+        if (end <= start) return null;
+        try {
+            return Long.valueOf(link.substring(start, end));
+        } catch (NumberFormatException ex) {
+            return null;
+        }
     }
 
     private List<Long> listArticleTagIds(Long articleId) {

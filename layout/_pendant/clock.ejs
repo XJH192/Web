@@ -1,15 +1,15 @@
-<div class="nexmoe-pd-item xjh-clock-wrap">
-  <section class="xjh-clock-card" aria-label="北京时间">
-    <div class="xjh-clock" data-xjh-clock>
+<div class="nexmoe-pd-item ciallo-clock-wrap">
+  <section class="ciallo-clock-card" aria-label="北京时间">
+    <div class="ciallo-clock" data-ciallo-clock>
       <% for (let i = 0; i < 60; i++) { %>
-        <span class="xjh-clock-tick <% if (i % 5 === 0) { %>major<% } %>" style="--tick:<%= i %>"></span>
+        <span class="ciallo-clock-tick <% if (i % 5 === 0) { %>major<% } %>" style="--tick:<%= i %>"></span>
       <% } %>
-      <span class="xjh-clock-hand hour" data-hand="hour"></span>
-      <span class="xjh-clock-hand minute" data-hand="minute"></span>
-      <span class="xjh-clock-hand second" data-hand="second"></span>
-      <span class="xjh-clock-center"></span>
+      <span class="ciallo-clock-hand hour" data-hand="hour"></span>
+      <span class="ciallo-clock-hand minute" data-hand="minute"></span>
+      <span class="ciallo-clock-hand second" data-hand="second"></span>
+      <span class="ciallo-clock-center"></span>
     </div>
-    <div class="xjh-clock-copy">
+    <div class="ciallo-clock-copy">
       <strong>北京时间</strong>
       <span data-clock-time>校准中</span>
       <small data-clock-date>正在校准</small>
@@ -32,7 +32,7 @@
       }, {});
     }
     function updateClock() {
-      const box = document.querySelector('[data-xjh-clock]');
+      const box = document.querySelector('[data-ciallo-clock]');
       if (!box) return;
       const parts = partsToObject(new Date());
       const hour = Number(parts.hour);
@@ -55,8 +55,8 @@
 </script>
 
 <style>
-  .xjh-clock-wrap { justify-content: flex-end; }
-  .xjh-clock-card {
+  .ciallo-clock-wrap { justify-content: flex-end; }
+  .ciallo-clock-card {
     width: 260px;
     display: flex;
     align-items: center;
@@ -68,7 +68,7 @@
     color: #30231d;
     box-shadow: 0 2px 8px rgba(87, 48, 31, .14);
   }
-  .xjh-clock {
+  .ciallo-clock {
     position: relative;
     flex: 0 0 78px;
     width: 78px;
@@ -78,7 +78,7 @@
     background: radial-gradient(circle at 50% 50%, #fff 0 58%, #fff7f1 59% 100%);
     box-shadow: inset 0 0 0 1px rgba(230, 114, 73, .16);
   }
-  .xjh-clock-tick {
+  .ciallo-clock-tick {
     position: absolute;
     left: 50%;
     top: 50%;
@@ -89,13 +89,13 @@
     transform: translate(-50%, -50%) rotate(calc(var(--tick) * 6deg)) translateY(-31px);
     transform-origin: 50% 50%;
   }
-  .xjh-clock-tick.major {
+  .ciallo-clock-tick.major {
     width: 2px;
     height: 9px;
     background: #e67249;
     transform: translate(-50%, -50%) rotate(calc(var(--tick) * 6deg)) translateY(-30px);
   }
-  .xjh-clock-hand {
+  .ciallo-clock-hand {
     position: absolute;
     left: 50%;
     top: 50%;
@@ -103,10 +103,10 @@
     transform-origin: 50% 100%;
     transition: transform .18s ease-out;
   }
-  .xjh-clock-hand.hour { width: 5px; height: 21px; background: #2f241f; }
-  .xjh-clock-hand.minute { width: 3px; height: 29px; background: #2f241f; }
-  .xjh-clock-hand.second { width: 2px; height: 32px; background: #e67249; }
-  .xjh-clock-center {
+  .ciallo-clock-hand.hour { width: 5px; height: 21px; background: #2f241f; }
+  .ciallo-clock-hand.minute { width: 3px; height: 29px; background: #2f241f; }
+  .ciallo-clock-hand.second { width: 2px; height: 32px; background: #e67249; }
+  .ciallo-clock-center {
     position: absolute;
     left: 50%;
     top: 50%;
@@ -117,11 +117,11 @@
     background: #e67249;
     transform: translate(-50%, -50%);
   }
-  .xjh-clock-copy { display: grid; gap: 4px; min-width: 0; }
-  .xjh-clock-copy strong { color: #2f241f; font-size: 15px; }
-  .xjh-clock-copy span { color: #e67249; font-size: 21px; font-weight: 800; line-height: 1; letter-spacing: .02em; }
-  .xjh-clock-copy small { color: #70594d; font-size: 12px; line-height: 1.5; }
+  .ciallo-clock-copy { display: grid; gap: 4px; min-width: 0; }
+  .ciallo-clock-copy strong { color: #2f241f; font-size: 15px; }
+  .ciallo-clock-copy span { color: #e67249; font-size: 21px; font-weight: 800; line-height: 1; letter-spacing: .02em; }
+  .ciallo-clock-copy small { color: #70594d; font-size: 12px; line-height: 1.5; }
   @media (prefers-reduced-motion: reduce) {
-    .xjh-clock-hand { transition: none; }
+    .ciallo-clock-hand { transition: none; }
   }
 </style>

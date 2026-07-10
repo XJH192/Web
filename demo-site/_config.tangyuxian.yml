@@ -70,7 +70,7 @@ memos:
   localItems:
     - content: "#moments 博客系统已接入 Spring Boot 后端，文章、评论、分类、标签和 AI 日志都会写入 MySQL。"
       createTime: '2026-07-06T14:30:00+08:00'
-    - content: "#moments 保留 xjh 主题风格、侧边栏组件、挂件和悬浮 AI 助手。"
+    - content: "#moments 保留 Ciallo～(∠・ω< )⌒☆ 主题风格、侧边栏组件、挂件和悬浮 AI 助手。"
       createTime: '2026-07-06T15:00:00+08:00'
 
 widgets:

@@ -8,7 +8,7 @@ comments: false
 reprint: true
 ---
 
-<section class="xjh-archive-page" id="xjh-archive-page">
+<section class="ciallo-archive-page" id="ciallo-archive-page">
   <header class="archive-hero-panel">
     <div>
       <p class="archive-kicker">小埋的文章仓库</p>
@@ -16,18 +16,21 @@ reprint: true
       <p>这里收纳站点文章和数据库已上架博客。管理员审核通过后，系统归档会自动同步，小伙伴们就能按年份、分类和标签快速找到内容。</p>
     </div>
     <div class="archive-stat-grid" id="archive-stat-grid">
-      <span><strong>0</strong>Hexo 文章</span>
+      <span><strong>0</strong>全部文章</span>
       <span><strong>0</strong>分类</span>
       <span><strong>0</strong>标签</span>
     </div>
   </header>
 
   <section class="archive-tools-panel" aria-label="归档筛选">
-    <input id="archive-search" placeholder="搜索标题、分类或标签">
+    <input id="archive-search" placeholder="搜索标题、作者用户名、分类或标签">
     <select id="archive-year-filter">
       <option value="">全部年份</option>
     </select>
-    <a class="archive-tool-link" href="#xjh-db-archives">查看系统上架博客</a>
+    <select id="archive-month-filter" disabled>
+      <option value="">请先选择年份</option>
+    </select>
+    <a class="archive-tool-link" href="#ciallo-db-archives">查看系统上架博客</a>
   </section>
 
   <section class="archive-cloud-panel">
@@ -52,7 +55,7 @@ reprint: true
     <div id="archive-list"></div>
   </article>
 
-  <section class="archive-timeline-panel db-archive-panel" id="xjh-db-archives">
+  <section class="archive-timeline-panel db-archive-panel" id="ciallo-db-archives">
     <div class="archive-section-head">
       <div>
         <h2 id="db-archive-section">系统上架博客</h2>
@@ -61,15 +64,18 @@ reprint: true
       <span id="db-archive-status">正在加载...</span>
     </div>
     <div class="archive-tools-panel compact">
-      <input id="db-archive-search" placeholder="搜索系统文章、作者、分类或标签">
+      <input id="db-archive-search" placeholder="搜索文章、作者用户名、分类或标签">
       <select id="db-archive-year"><option value="">全部年份</option></select>
+      <select id="db-archive-month" disabled><option value="">请先选择年份</option></select>
     </div>
     <div id="db-archive-list" class="db-archive-list"></div>
   </section>
 </section>
 
+<script src="/js/archives.js"></script>
 <script>
 (function () {
+  if (window.cialloArchivesV2) return;
   const API_BASE = window.BLOG_API_BASE || 'http://127.0.0.1:8080/api';
   const params = new URLSearchParams(location.search);
   const initialYear = params.get('year') || '';

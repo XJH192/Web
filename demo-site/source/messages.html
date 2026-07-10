@@ -1,0 +1,40 @@
+---
+title: 私信
+permalink: messages.html
+cover: /images/background/gongzuotai.jpg
+coverWidth: 1920
+coverHeight: 760
+---
+
+<link rel="stylesheet" href="/blog-system.css">
+
+<section class="blog-app" id="messages-page">
+  <header class="blog-app-head">
+    <div>
+      <p class="section-kicker">私信</p>
+      <h2>用户会话</h2>
+      <p class="blog-muted">私信直接发送，不经过 AI 或管理员审核。</p>
+    </div>
+    <div class="head-actions">
+      <a class="blog-link-btn user-only-link" href="/blog.html">返回工作台</a>
+      <a class="blog-link-btn admin-only-link" href="/admin.html">返回后台</a>
+    </div>
+  </header>
+
+  <section class="blog-panel message-panel">
+    <div id="message-conversation-head" class="message-conversation-head">
+      <p class="blog-muted">正在加载会话...</p>
+    </div>
+    <div id="message-list" class="message-list"></div>
+    <form id="message-form" class="message-form">
+      <textarea id="message-content" rows="4" maxlength="1000" required placeholder="输入私信内容"></textarea>
+      <div class="message-form-actions">
+        <span id="message-limit-status" class="blog-muted"></span>
+        <button id="message-send-btn" type="submit">发送私信</button>
+      </div>
+    </form>
+    <p id="message-status" class="blog-status" aria-live="polite"></p>
+  </section>
+</section>
+
+<script src="/js/blog-api.js"></script>

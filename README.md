@@ -1,127 +1,165 @@
-# xjh 博客系统
+# Ciallo～(∠・ω< )⌒☆ 多用户智能博客系统
 
-这是一个用于 Web 高级程序设计实训的博客系统项目。项目保留了小埋动漫主题风格，并在 Hexo 前端页面上接入 Spring Boot 后端、MySQL 数据库、管理员审核、用户工作台、文章归档、附件上传、点赞评论通知和 DeepSeek AI 辅助写作功能。
+本项目是面向 Web 高级程序设计实训的多用户博客系统。前端保留 Hexo Ciallo～(∠・ω< )⌒☆ 动漫主题风格，后端采用 Spring Boot + JDBC，数据持久化使用 MySQL，并接入 DeepSeek 兼容接口实现 AI 辅助写作、博客问答和内容初审。
 
-## 项目功能
+## 当前功能
 
-- 登录与注册：用户登录后按角色进入用户工作台或管理员后台。
-- 用户工作台：发布文章、保存草稿、上传图片/PPT/PDF/Word 附件、使用 AI 生成摘要/大纲/分类/标签。
-- 首页与归档：展示管理员审核通过的文章，支持查看、点赞、评论、筛选和归档。
-- 管理员后台：用户管理、文章审核、评论审核、分类管理、标签管理、AI 使用记录分页查看。
-- 数据库：默认数据库名为 `mydataset`，至少包含用户、文章、评论、分类、标签、通知、AI 日志、附件等业务表。
-- AI 能力：后端通过兼容 OpenAI Chat Completions 的方式接入 DeepSeek API，并记录提示词、思考过程和输出结果。
+### 账号与社交
+
+- 注册、登录、用户名唯一性校验、普通用户与管理员角色区分。
+- 用户资料卡、邮箱脱敏、用户和文章搜索。
+- 关注、取关、粉丝数、关注数和互关状态。
+- 关注者可收到被关注用户的新文章通知。
+- 私信：非互关用户最多向同一用户发送 3 条，互关后不限量。
+
+### 文章与互动
+
+- 文章本地草稿、发布、编辑、删除、搜索、筛选、分页和阅读量统计；本地草稿按账号保存在当前浏览器，刷新后自动恢复，正式发布后才写入 MySQL。
+- 分类、标签、归档和附件上传；归档支持作者用户名、分类、标签以及“年份—月份”筛选，分类标签云和侧边栏统计随当前账号文章动态更新；附件支持图片、PPT、PDF、Word 等 Data URL 数据。
+- 文章目录支持 Markdown、HTML、中文章节、数字层级和段落摘要。
+- 文章点赞、评论、回复、评论点赞。
+- 删除文章时级联删除评论、文章点赞、评论点赞、附件、标签关联和原关联通知。
+- 单条通知已读、全部已读和侧边栏动态红点。
+- 点赞者、评论者、关注者和私信发送者用户名可进入资料卡。
+- 资料卡按权限展示邮箱：本人和管理员可查看完整邮箱，其他普通用户只能看到脱敏邮箱；密码始终不返回前端。
+
+### 相册
+
+- 每个账号拥有独立相册，首次创建账号时自动初始化 8 张默认图片。
+- 普通用户和管理员均可上传、修改、替换和删除自己的图片。
+- 每个账号最多保留 8 张图片。
+- 用户资料卡展示该用户当前相册。
+
+### AI 与审核
+
+- DeepSeek AI：生成大纲、摘要、标签、分类和博客问答。
+- AI 接口仅允许登录用户调用，避免匿名消耗外部模型额度。
+- 文章和评论先经过本地 AI 风险规则初审：
+  - 正常内容直接公开。
+  - 疑似广告、辱骂、低俗或诈骗内容进入管理员审核。
+- 审核通过不发送多余的“通过”通知；内容公开后只通知真正发生互动的相关用户。
+- 审核驳回会通知内容作者。
+- 管理员可分页查看 AI 使用日志、处理摘要和调用结果。
+
+### 管理员后台
+
+- 仪表盘统计。
+- 用户角色、封禁、解封和删除。
+- 文章审核、评论审核与删除。
+- 分类和标签增删改查。
+- AI 使用日志查询。
 
 ## 技术栈
 
-- 前端：Hexo 7、Inferno、EJS、Stylus、原生 JavaScript
-- 后端：Spring Boot 3、Java 17、Maven
-- 数据库：MySQL 8，推荐使用 Navicat 导入 SQL
-- AI：DeepSeek API
+- 前端：Hexo 7、Inferno、EJS、Stylus、原生 JavaScript、Fetch API
+- 后端：Spring Boot 2.7.18、Spring JDBC、REST API
+- Java：源码兼容 Java 8；当前一键启动脚本可使用本机 JDK 17
+- 数据库：MySQL 8
+- 构建：Node.js 18+、Maven 3.8+
+- AI：DeepSeek/OpenAI Chat Completions 兼容接口
 
-## 目录说明
+## 项目结构
 
 ```text
 .
-├─ demo-site/                  # Hexo 演示站点，页面源码在 demo-site/source
-├─ blog-system/backend/        # Spring Boot 后端
-├─ blog-system/database/       # MySQL 建表和初始化 SQL
-├─ blog-system/docs/           # 需求、接口、AI 使用等文档
-├─ layout/                     # Hexo 主题布局
-├─ source/                     # 主题静态资源、图片、脚本和默认配置
-├─ start-web.cmd               # 一键启动脚本
-├─ stop-web.cmd                # 停止本地服务脚本
-└─ README.md                   # 本说明文档
+├─ demo-site/
+│  ├─ source/                         # 系统页面、业务 CSS 和前端交互脚本
+│  └─ public/                         # Hexo 生成产物
+├─ blog-system/
+│  ├─ backend/                        # Spring Boot 后端
+│  ├─ database/                       # schema.sql 与 Navicat SQL
+│  ├─ docs/                           # 需求分析、使用手册和测试报告
+│  └─ tests/                          # 全功能端到端测试脚本
+├─ layout/                            # Hexo 主题布局
+├─ source/                            # 主题图片和静态资源
+├─ start-web.ps1 / start-web.cmd      # 一键启动
+├─ stop-web.ps1 / stop-web.cmd        # 一键停止
+└─ README.md
 ```
 
-## 获取项目
+## 数据库
 
-第一次在本地运行时，先克隆仓库并进入项目目录：
+数据库名为 `mydataset`，当前包含 15 张业务表：
 
-```powershell
-git clone https://github.com/XJH192/Web.git
-cd Web
-```
+1. `users`
+2. `categories`
+3. `tags`
+4. `articles`
+5. `article_attachments`
+6. `article_tags`
+7. `article_likes`
+8. `comments`
+9. `comment_likes`
+10. `user_follows`
+11. `private_messages`
+12. `gallery_photos`
+13. `user_gallery_settings`
+14. `notifications`
+15. `ai_usage_logs`
 
-## 本地运行准备
-
-请先确认本机已安装：
-
-- Node.js 18 或更高版本
-- JDK 17
-- Maven 3.8 或更高版本
-- MySQL 8
-- Navicat 或其他 MySQL 管理工具
-
-## 数据库初始化
-
-1. 打开 MySQL，确认服务已启动。
-2. 使用 Navicat 新建数据库：
-
-```sql
-CREATE DATABASE IF NOT EXISTS mydataset DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-```
-
-3. 在 Navicat 中选择 `mydataset` 数据库，执行下面任意一个 SQL 文件：
+初始化时在 Navicat 或 MySQL 客户端执行以下任一文件：
 
 ```text
 blog-system/database/schema.sql
 blog-system/database/mydataset_navicat.sql
 ```
 
-4. 默认账号：
+默认测试账号：
 
 ```text
 管理员：admin / 123456
 普通用户：user / 123456
 ```
 
-## 环境变量配置
+## 环境配置
 
-如果 MySQL 用户名和密码都是 `root`，可以直接启动。若不同，请在 PowerShell 中设置：
+推荐在项目根目录创建 `.env.local`。该文件已被 `.gitignore` 忽略，不要提交真实密钥。
 
-```powershell
-$env:MYSQL_USER="root"
-$env:MYSQL_PASSWORD="root"
+```dotenv
+MYSQL_USER=root
+MYSQL_PASSWORD=你的MySQL密码
+DEEPSEEK_API_KEY=你的DeepSeek密钥
+DEEPSEEK_MODEL=deepseek-chat
 ```
 
-DeepSeek API 建议用环境变量配置，不要把 Key 写进代码仓库：
+可选 AI 配置：
 
-```powershell
-$env:DEEPSEEK_API_KEY="你的 DeepSeek API Key"
-$env:DEEPSEEK_MODEL="deepseek-chat"
+```dotenv
+AI_CHAT_BASE_URL=https://api.deepseek.com
+AI_CHAT_MODEL=deepseek-chat
+AI_ALLOW_LOCAL_FALLBACK=false
 ```
 
-也可以在项目根目录创建 `.env.local`，启动脚本会自动读取本地环境变量文件。该文件已加入 `.gitignore`，不会提交到仓库。
+当 `AI_ALLOW_LOCAL_FALLBACK=false` 且外部模型不可用时，AI 写作接口会返回明确错误，不会用固定模板伪装成模型结果。文章和评论风险初审始终可以使用本地规则。
 
-## 安装依赖
+## 安装与启动
 
-第一次接手项目时，在项目根目录执行：
+安装前端依赖：
 
 ```powershell
 npm install
 npm --prefix demo-site install
 ```
 
-如果 Maven 依赖还未下载，后端编译时会自动拉取依赖。
-
-## 一键启动
-
-在项目根目录执行：
+启动 MySQL 并导入数据库后，在项目根目录执行：
 
 ```powershell
 npm run web
 ```
 
-启动成功后访问：
+也可以直接运行：
 
-```text
-http://127.0.0.1:4000/login.html
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\start-web.ps1
 ```
 
-该命令会启动：
+访问地址：
 
-- Spring Boot 后端：`http://127.0.0.1:8080/api`
-- Hexo 前端：`http://127.0.0.1:4000`
+```text
+前端：http://127.0.0.1:4000/
+登录：http://127.0.0.1:4000/login.html
+后端：http://127.0.0.1:8080/api
+```
 
 停止服务：
 
@@ -129,46 +167,77 @@ http://127.0.0.1:4000/login.html
 npm run web:stop
 ```
 
-## 常用开发命令
-
-```powershell
-npm --prefix demo-site run generate   # 生成前端静态页面
-npm --prefix demo-site run server     # 仅启动 Hexo 静态预览
-npm run check:backend                 # 编译检查 Spring Boot 后端
-npm run web                           # 一键启动前后端
-npm run web:stop                      # 停止前后端服务
-```
-
 ## 页面入口
 
-```text
-/login.html      登录页
-/blog.html       用户工作台
-/admin.html      管理员后台
-/home.html       首页文章流
-/archives.html   文章归档
-/article.html    文章详情
-/about.html      关于页面
-/gallery.html    相册
-/memos.html      动态
-```
+| 页面 | 地址 | 说明 |
+|---|---|---|
+| 登录注册 | `/login.html` | 登录、注册和角色跳转 |
+| 用户工作台 | `/blog.html` | 文章流、搜索、社交、发布和管理 |
+| 管理后台 | `/admin.html` | 用户、文章、评论、分类、标签和 AI 日志 |
+| 文章详情 | `/article.html?id=文章ID` | 正文目录、附件、点赞、评论、回复和 AI 问答 |
+| 文章归档 | `/archives.html` | 分类、标签和年份归档 |
+| 用户资料 | `/user.html?id=用户ID` | 脱敏资料、社交关系、相册和公开文章 |
+| 私信 | `/messages.html?userId=用户ID` | 用户会话 |
+| 相册 | `/gallery.html` | 当前账号的 8 张相册图片 |
+| 动态通知 | `/memos.html` | 点赞、评论、关注、文章和私信通知 |
+| 独立智能体 | `/ai-widget.html` | 登录后使用博客问答 |
 
-## 后续维护建议
+## 构建与测试
 
-- 修改页面样式优先看 `demo-site/source/custom.css` 和 `demo-site/source/blog-system.css`。
-- 修改博客系统交互优先看 `demo-site/source/js/blog-api.js`。
-- 修改右侧天气、时钟等挂件优先看 `layout/_pendant/`。
-- 修改后端接口优先看 `blog-system/backend/src/main/java/com/xjh/blog/controller` 和 `service`。
-- 修改数据库结构后，同步更新 `blog-system/database/schema.sql` 与 `blog-system/database/mydataset_navicat.sql`。
-- 提交前建议至少运行：
+前端语法和生成：
 
 ```powershell
 node --check source/js/app.js
 node --check demo-site/source/js/blog-api.js
 npm --prefix demo-site run generate
-npm run check:backend
 ```
+
+后端编译和打包：
+
+```powershell
+cd blog-system/backend
+mvn -q -DskipTests compile
+mvn -q -DskipTests package
+```
+
+服务启动后执行全功能端到端测试：
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\blog-system\tests\run-full-system-test.ps1
+```
+
+测试脚本会创建带 `e2e_` 前缀的临时账号，覆盖认证、权限、分类标签、文章、附件、AI 审核、评论、点赞、通知、关注、私信、相册、搜索、管理员后台、AI 五项能力和文章级联删除，结束后自动清理测试数据。
+
+最近一次完整验收结果：
+
+```text
+前端 JavaScript 语法检查：通过
+Hexo 页面生成：通过
+13 个主要页面 HTTP 检查：通过
+Spring Boot Maven 打包：通过
+端到端业务检查：50 / 50 通过
+测试数据残留：0
+```
+
+## 修改位置
+
+- 前端业务逻辑：`demo-site/source/js/blog-api.js`
+- 前端业务样式：`demo-site/source/blog-system.css`
+- 页面源码：`demo-site/source/*.html`、`demo-site/source/*.md`
+- 后端控制器：`blog-system/backend/src/main/java/com/tangyuxian/blog/controller`
+- 后端服务：`blog-system/backend/src/main/java/com/tangyuxian/blog/service`
+- 数据访问：`blog-system/backend/src/main/java/com/tangyuxian/blog/repository`
+- 数据库脚本：`blog-system/database/schema.sql`
+
+修改数据库结构后，请同步更新 `schema.sql` 和 `mydataset_navicat.sql`；修改前端后请重新执行 Hexo generate。
+
+## 已知说明
+
+- 登录令牌保存在后端内存中，重启后端后需要重新登录。
+- 图片和附件以 Data URL 形式存入数据库，适合课程设计和中小规模演示，不建议直接用于高并发生产环境。
+- 私信不经过 AI 或管理员审核，直接发送。
+- 系统截图应在最终提交前使用自己的浏览器和数据重新截取，避免包含测试临时账号。
 
 ## 仓库
 
-项目仓库：<https://github.com/XJH192/Web>
+<https://github.com/XJH192/Web>

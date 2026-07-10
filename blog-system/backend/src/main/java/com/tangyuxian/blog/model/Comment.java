@@ -12,6 +12,8 @@ public class Comment {
     private String content;
     private CommentStatus status;
     private String aiReviewResult;
+    private int likeCount;
+    private boolean likedByCurrentUser;
     private LocalDateTime createdAt;
 
     public Long getId() { return id; }
@@ -32,6 +34,10 @@ public class Comment {
     public void setStatus(CommentStatus status) { this.status = status; }
     public String getAiReviewResult() { return aiReviewResult; }
     public void setAiReviewResult(String aiReviewResult) { this.aiReviewResult = aiReviewResult; }
+    public int getLikeCount() { return likeCount; }
+    public void setLikeCount(int likeCount) { this.likeCount = likeCount; }
+    public boolean isLikedByCurrentUser() { return likedByCurrentUser; }
+    public void setLikedByCurrentUser(boolean likedByCurrentUser) { this.likedByCurrentUser = likedByCurrentUser; }
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
 }

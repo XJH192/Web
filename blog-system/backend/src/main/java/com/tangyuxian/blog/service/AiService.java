@@ -3,6 +3,7 @@ package com.tangyuxian.blog.service;
 import com.tangyuxian.blog.dto.AiRequest;
 import com.tangyuxian.blog.model.AiUsageLog;
 import com.tangyuxian.blog.model.Article;
+import com.tangyuxian.blog.model.ArticleStatus;
 import com.tangyuxian.blog.model.Category;
 import com.tangyuxian.blog.repository.InMemoryBlogRepository;
 import org.springframework.core.env.Environment;
@@ -26,6 +27,28 @@ import java.util.Map;
 @Service
 public class AiService {
     private static final String DEFAULT_INSTRUCTION = "请结合标题、正文、现有分类和已有标签，输出适合博客系统直接使用的中文结果；如果信息不足，请基于已有内容保守推荐。";
+    private static final String[] AD_KEYWORDS = {
+            "广告", "加微信", "加我微信", "微信联系", "vx", "v信", "薇信", "微商", "私聊", "私信",
+            "联系方式", "二维码", "扫码", "推广", "引流", "互粉", "涨粉", "刷粉", "刷赞", "刷单",
+            "兼职", "日结", "返利", "优惠券", "代理", "招商", "加盟", "代写", "论文代写", "代发",
+            "qq群", "q群", "扣群", "telegram", "whatsapp", "t.me", "http://", "https://", "www."
+    };
+    private static final String[] ABUSE_KEYWORDS = {
+            "傻逼", "傻屄", "煞笔", "傻比", "沙币", "sb", "nmsl", "cnm", "cnmd",
+            "你妈", "你妹", "滚", "滚蛋", "爬", "去死", "死全家", "废物", "真垃圾", "太垃圾",
+            "垃圾东西", "垃圾人", "垃圾博主", "蠢货",
+            "脑残", "脑瘫", "弱智", "智障", "低能", "有病", "神经病", "畜生", "司马",
+            "小丑", "键盘侠", "杠精", "喷子", "破防了", "急了", "骂"
+    };
+    private static final String[] VULGAR_KEYWORDS = {
+            "色情", "黄色", "低俗", "约炮", "裸聊", "成人视频", "福利视频", "你懂的", "看片",
+            "开车", "ghs", "卖片", "资源群", "同城约", "上门服务"
+    };
+    private static final String[] FRAUD_KEYWORDS = {
+            "博彩", "赌博", "网赌", "娱乐城", "时时彩", "六合彩", "赌球", "贷款", "套现",
+            "代办证", "办证", "假证", "发票", "洗钱", "灰产", "黑产", "盗号", "外挂",
+            "破解", "免杀", "接码", "卖号", "代充", "资金盘", "杀猪盘", "虚拟币稳赚"
+    };
 
     private final InMemoryBlogRepository repository;
     private final Environment environment;
@@ -133,37 +156,252 @@ public class AiService {
     }
 
     public String reviewComment(String content) {
-        String text = safe(content, "").toLowerCase();
+        String raw = safe(content, "");
+        String text = normalizeForReview(raw);
         String result;
         String thinking;
-        if (text.contains("广告") || text.contains("加微信") || text.contains("spam") || text.contains("http://") || text.contains("https://")) {
-            result = "REJECT: 疑似广告或垃圾信息";
-            thinking = "本地审核规则命中广告、外链或垃圾信息关键词。";
-        } else if (text.contains("骂") || text.contains("垃圾") || text.contains("hate")) {
-            result = "REJECT: 疑似不文明内容";
-            thinking = "本地审核规则命中不文明或攻击性表达关键词。";
+        if (containsAny(text, AD_KEYWORDS) || text.contains("spam")) {
+            result = "REVIEW: 疑似广告或垃圾信息";
+            thinking = "本地审核规则命中广告引流、外链、社群导流或垃圾信息关键词。";
+        } else if (containsAny(text, ABUSE_KEYWORDS) || text.contains("hate")) {
+            result = "REVIEW: 疑似不文明内容";
+            thinking = "本地审核规则命中辱骂、攻击性表达或当代网络攻击用语。";
+        } else if (containsAny(text, VULGAR_KEYWORDS)) {
+            result = "REVIEW: 疑似低俗色情内容";
+            thinking = "本地审核规则命中低俗、色情或擦边引流关键词。";
+        } else if (containsAny(text, FRAUD_KEYWORDS)) {
+            result = "REVIEW: 疑似诈骗或违规推广";
+            thinking = "本地审核规则命中博彩、诈骗、黑产或违规交易关键词。";
         } else {
             result = "PASS: 普通评论";
-            thinking = "本地审核规则未发现明显广告、外链或不文明关键词。";
+            thinking = "本地审核规则未发现明显广告、外链、不文明、低俗或违规推广关键词。";
         }
         log("AI_COMMENT_REVIEW", content, result, thinking);
         return result;
     }
 
+    public String reviewArticle(String title, String summary, String content) {
+        String raw = safe(title, "") + "\n" + safe(summary, "") + "\n" + safe(content, "");
+        String text = normalizeForReview(raw);
+        String result;
+        String thinking;
+        if (containsAny(text, AD_KEYWORDS) || text.contains("spam")) {
+            result = "REVIEW: 疑似广告、外链或引流内容";
+            thinking = "文章初审命中广告、外链、社群导流或垃圾信息关键词，转交管理员复核。";
+        } else if (containsAny(text, ABUSE_KEYWORDS) || text.contains("hate")) {
+            result = "REVIEW: 疑似攻击或不文明内容";
+            thinking = "文章初审命中辱骂、攻击性表达或不文明关键词，转交管理员复核。";
+        } else if (containsAny(text, VULGAR_KEYWORDS)) {
+            result = "REVIEW: 疑似低俗色情内容";
+            thinking = "文章初审命中低俗、色情或擦边内容关键词，转交管理员复核。";
+        } else if (containsAny(text, FRAUD_KEYWORDS)) {
+            result = "REVIEW: 疑似诈骗或违规内容";
+            thinking = "文章初审命中博彩、诈骗、黑产或违规交易关键词，转交管理员复核。";
+        } else {
+            result = "PASS: 文章内容未发现明显风险";
+            thinking = "文章初审未发现明显广告、攻击、低俗、诈骗或违规推广关键词，可直接公开。";
+        }
+        log("AI_ARTICLE_REVIEW", raw, result, thinking);
+        return result;
+    }
+
     public Map<String, Object> answer(AiRequest request) {
         String question = safe(request.getQuestion(), "");
-        StringBuilder evidence = new StringBuilder();
-        for (Article article : repository.listArticles()) {
-            if (evidence.length() > 0) evidence.append("；");
-            evidence.append(article.getTitle());
-            if (evidence.length() > 160) break;
-        }
         Map<String, Object> map = new LinkedHashMap<String, Object>();
+        if (question.isEmpty()) {
+            map.put("question", question);
+            map.put("answer", "请先输入你想了解的问题。");
+            map.put("mode", "local-validation");
+            log("AI_QA", question, map.toString(), "用户未输入问题，未发起远程调用。");
+            return map;
+        }
+        List<Article> publicArticles = publishedArticles();
+        if (publicArticles.isEmpty()) {
+            map.put("question", question);
+            map.put("answer", "当前还没有已发布文章，暂时无法基于博客内容回答。");
+            map.put("mode", "local-no-content");
+            log("AI_QA", question, map.toString(), "当前没有已发布文章，未发起远程调用。");
+            return map;
+        }
+
+        List<Article> evidenceArticles = relevantArticles(publicArticles, question, 5);
+        if (evidenceArticles.isEmpty()) {
+            map.put("question", question);
+            map.put("answer", "没有在已发布文章中找到与“" + question + "”明确相关的内容，因此不生成无依据回答。你可以换一个更具体的关键词再问。");
+            map.put("mode", "local-no-match");
+            map.put("sources", new ArrayList<String>());
+            log("AI_QA", question, map.toString(), "本地检索未命中明确相关文章，未发起远程调用，避免引用无关文章。");
+            return map;
+        }
+        String context = blogKnowledgeContext(evidenceArticles);
+        String prompt = "用户问题：" + question + "\n\n当前博客已发布文章内容：\n" + context +
+                "\n\n请基于上面的博客内容回答用户问题。要求：" +
+                "\n1. 只能依据给出的博客内容回答，不要编造博客中没有的信息。" +
+                "\n2. 如果博客内容不足以回答，请明确说明没有找到相关内容，并给出最接近的文章线索。" +
+                "\n3. 回答使用中文，只输出回答正文；不要列出文章标题，不要出现“依据文章”“参考文章”或“来源”等段落，系统会单独展示来源。" +
+                "\n4. 不要输出 JSON、Markdown 表格、项目符号或额外解释。";
+        ChatResult remote = chat("你是博客内容问答助手。你会阅读当前博客已发布文章，并基于证据回答用户问题。", prompt, 900);
+        String answer = cleanQaAnswer(remote.getContent());
+        if (!answer.isEmpty()) {
+            map.put("question", question);
+            map.put("answer", answer);
+            map.put("mode", remote.getMode());
+            map.put("thinking", thinkingSummary(remote, "检索已发布文章标题、摘要、分类、标签和正文片段，选择相关证据后回答用户问题。"));
+            map.put("sources", sourceTitles(evidenceArticles, 8));
+            log("AI_QA", prompt, map.toString(), thinkingSummary(remote, "检索已发布文章标题、摘要、分类、标签和正文片段，选择相关证据后回答用户问题。"));
+            return map;
+        }
+        if (!allowLocalFallback()) {
+            Map<String, Object> error = aiError("AI_QA", prompt, remote, "DeepSeek 博客问答失败");
+            error.put("question", question);
+            error.put("answer", String.valueOf(error.get("error")));
+            error.put("sources", sourceTitles(evidenceArticles, 8));
+            return error;
+        }
+
+        List<String> matchedTitles = sourceTitles(evidenceArticles, 5);
         map.put("question", question);
-        map.put("answer", "根据当前博客内容，可以从这些文章入手：" + evidence.toString() + "。当前为本地规则回答，后续可替换为知识库问答或大模型 API。");
+        map.put("answer", fallbackBlogAnswer(question, matchedTitles));
         map.put("mode", "local-rule-fallback");
-        log("AI_QA", question, map.toString(), "读取当前文章标题作为证据，生成本地问答回复。若接入知识库，可改为向量检索后再调用 DeepSeek。");
+        map.put("sources", matchedTitles);
+        log("AI_QA", prompt, map.toString(), "DeepSeek 暂不可用，按配置启用本地文章标题匹配兜底。");
         return map;
+    }
+
+    private List<Article> publishedArticles() {
+        List<Article> result = new ArrayList<Article>();
+        for (Article article : repository.listArticles()) {
+            if (article != null && article.getStatus() == ArticleStatus.PUBLISHED) result.add(article);
+        }
+        return result;
+    }
+
+    private String blogKnowledgeContext(List<Article> articles) {
+        StringBuilder builder = new StringBuilder();
+        int total = 0;
+        int index = 1;
+        for (Article article : articles) {
+            if (index > 8 || total > 7000) break;
+            String block = "文章 " + index + "\n" +
+                    "标题：" + safe(article.getTitle(), "未命名文章") + "\n" +
+                    "分类：" + safe(article.getCategoryName(), "未分类") + "\n" +
+                    "标签：" + joinTags(article.getTagNames()) + "\n" +
+                    "摘要：" + safe(article.getSummary(), "暂无摘要") + "\n" +
+                    "正文片段：" + compactText(safe(article.getContent(), ""), 1000) + "\n";
+            builder.append(block).append("\n");
+            total += block.length();
+            index++;
+        }
+        return builder.toString();
+    }
+
+    private List<String> sourceTitles(List<Article> articles, int max) {
+        List<String> titles = new ArrayList<String>();
+        if (articles == null) return titles;
+        for (Article article : articles) {
+            if (article == null || safe(article.getTitle(), "").isEmpty()) continue;
+            titles.add(article.getTitle().trim());
+            if (titles.size() >= max) break;
+        }
+        return titles;
+    }
+
+    private List<Article> relevantArticles(List<Article> articles, String question, int max) {
+        List<Article> ranked = new ArrayList<Article>();
+        List<Integer> scores = new ArrayList<Integer>();
+        if (articles == null || articles.isEmpty()) return ranked;
+        for (Article article : articles) {
+            int score = articleRelevanceScore(article, question);
+            if (score <= 0) continue;
+            int index = 0;
+            while (index < scores.size() && scores.get(index) >= score) index++;
+            ranked.add(index, article);
+            scores.add(index, score);
+            if (ranked.size() > max) {
+                ranked.remove(ranked.size() - 1);
+                scores.remove(scores.size() - 1);
+            }
+        }
+        if (!scores.isEmpty()) {
+            int threshold = Math.max(45, (int) Math.ceil(scores.get(0) * 0.35d));
+            while (!scores.isEmpty() && scores.get(scores.size() - 1) < threshold) {
+                scores.remove(scores.size() - 1);
+                ranked.remove(ranked.size() - 1);
+            }
+        }
+        return ranked;
+    }
+
+    private int articleRelevanceScore(Article article, String question) {
+        if (article == null) return 0;
+        String normalizedQuestion = normalizedQuestionKeywords(question);
+        if (normalizedQuestion.isEmpty()) return 0;
+        String title = normalizeForReview(article.getTitle());
+        String summary = normalizeForReview(article.getSummary());
+        String tags = normalizeForReview(joinTags(article.getTagNames()));
+        String category = normalizeForReview(article.getCategoryName());
+        String content = normalizeForReview(article.getContent());
+        String full = title + summary + tags + category + content;
+        int score = 0;
+        if (title.contains(normalizedQuestion)) score += 120;
+        if (summary.contains(normalizedQuestion)) score += 80;
+        if (content.contains(normalizedQuestion)) score += 60;
+        if ((tags + category).contains(normalizedQuestion)) score += 40;
+        List<String> terms = queryTerms(normalizedQuestion);
+        for (String term : terms) {
+            if (term.length() < 2) continue;
+            if (title.contains(term)) score += term.length() >= 4 ? 45 : 28;
+            if (summary.contains(term)) score += term.length() >= 4 ? 24 : 12;
+            if (content.contains(term)) score += term.length() >= 4 ? 18 : 5;
+            if ((tags + category).contains(term)) score += 18;
+        }
+        if (score < 30 && !full.contains(normalizedQuestion)) return 0;
+        return score;
+    }
+
+    private String normalizedQuestionKeywords(String question) {
+        String text = normalizeForReview(question);
+        String[] stopWords = {"什么是", "什么叫", "请问", "介绍一下", "解释一下", "一下", "这个", "那个", "当前", "内容", "文章", "可以", "如何", "怎么", "哪些", "有什么", "是什么", "是啥", "系统", "实现", "功能", "了", "吗", "呢", "的"};
+        for (String stopWord : stopWords) text = text.replace(normalizeForReview(stopWord), "");
+        return text;
+    }
+
+    private List<String> queryTerms(String normalizedQuestion) {
+        List<String> terms = new ArrayList<String>();
+        addTerm(terms, normalizedQuestion);
+        for (int length = Math.min(6, normalizedQuestion.length()); length >= 2; length--) {
+            for (int i = 0; i + length <= normalizedQuestion.length(); i++) {
+                addTerm(terms, normalizedQuestion.substring(i, i + length));
+            }
+        }
+        return terms;
+    }
+
+    private void addTerm(List<String> terms, String term) {
+        if (term == null || term.length() < 2 || terms.contains(term)) return;
+        terms.add(term);
+    }
+
+    private List<String> matchedArticleTitles(List<Article> articles, String question) {
+        List<String> titles = new ArrayList<String>();
+        for (Article article : articles) {
+            if (articleRelevanceScore(article, question) > 0) titles.add(article.getTitle());
+            if (titles.size() >= 5) break;
+        }
+        return titles;
+    }
+
+    private String fallbackBlogAnswer(String question, List<String> matchedTitles) {
+        if (matchedTitles == null || matchedTitles.isEmpty()) {
+            return "DeepSeek 暂不可用，本地兜底没有在已发布文章中找到与“" + question + "”明显相关的内容。你可以换一个更具体的问题，或稍后重试大模型问答。";
+        }
+        return "DeepSeek 暂不可用。本地兜底已定位到与“" + question + "”相关的内容，请查看下方依据文章，或稍后重试大模型问答。";
+    }
+
+    private String cleanQaAnswer(String content) {
+        String answer = compactText(content, 1200);
+        answer = answer.replaceFirst("(?s)\\s*(?:依据文章|参考文章|来源文章|参考来源)\\s*[:：].*$", "").trim();
+        return answer;
     }
 
     private static RestTemplate createRestTemplate() {
@@ -355,6 +593,38 @@ public class AiService {
             if (value != null && !value.trim().isEmpty()) return value.trim();
         }
         return "";
+    }
+
+    private boolean containsAny(String text, String[] keywords) {
+        if (text == null || text.isEmpty() || keywords == null) return false;
+        for (String keyword : keywords) {
+            if (keyword != null && !keyword.trim().isEmpty() && text.contains(normalizeForReview(keyword))) return true;
+        }
+        return false;
+    }
+
+    private String normalizeForReview(String value) {
+        String text = safe(value, "").toLowerCase();
+        StringBuilder builder = new StringBuilder();
+        for (int i = 0; i < text.length(); i++) {
+            char ch = text.charAt(i);
+            if (ch >= 'Ａ' && ch <= 'Ｚ') ch = (char) (ch - 'Ａ' + 'a');
+            else if (ch >= 'ａ' && ch <= 'ｚ') ch = (char) (ch - 'ａ' + 'a');
+            else if (ch >= '０' && ch <= '９') ch = (char) (ch - '０' + '0');
+            if (Character.isLetterOrDigit(ch) || isChinese(ch)) builder.append(ch);
+        }
+        return builder.toString()
+                .replace("vx号", "vx")
+                .replace("v信", "vx")
+                .replace("傻b", "傻逼")
+                .replace("煞b", "傻逼")
+                .replace("杀b", "傻逼")
+                .replace("脑can", "脑残")
+                .replace("司m", "司马");
+    }
+
+    private boolean isChinese(char ch) {
+        return ch >= '\u4e00' && ch <= '\u9fff';
     }
 
     private String safe(String value, String fallback) {

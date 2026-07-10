@@ -5,15 +5,15 @@
         </a>
     </div>
     <div class="nexmoe-count">
-        <div class="nexmoe-count-item"><span><%= __('count.articles') %></span><%= site.posts.length %> <div class="item-radius"></div><div class="item-radius item-right"></div> </div>
-        <div class="nexmoe-count-item"><span><%= __('count.tags') %></span><%= site.tags.length %><div class="item-radius"></div><div class="item-radius item-right"></div></div>
-        <div class="nexmoe-count-item"><span><%= __('count.categories') %></span><%= site.categories.length %><div class="item-radius"></div><div class="item-radius item-right"></div></div>
+        <div class="nexmoe-count-item"><span><%= __('count.articles') %></span><b id="ciallo-sidebar-article-count"><%= site.posts.length %></b><div class="item-radius"></div><div class="item-radius item-right"></div></div>
+        <div class="nexmoe-count-item"><span><%= __('count.tags') %></span><b id="ciallo-sidebar-tag-count"><%= site.tags.length %></b><div class="item-radius"></div><div class="item-radius item-right"></div></div>
+        <div class="nexmoe-count-item"><span><%= __('count.categories') %></span><b id="ciallo-sidebar-category-count"><%= site.categories.length %></b><div class="item-radius"></div><div class="item-radius item-right"></div></div>
     </div>
     <div class="nexmoe-list mdui-list" mdui-collapse="{accordion: true}">
-        <% for (name in theme.menu) { const href = theme.menu[name][0]; const roleEntry = href === '/blog.html' ? 'user' : (href === '/admin.html' ? 'admin' : ''); %>
-        <a class="nexmoe-list-item mdui-list-item mdui-ripple <%= is_current(href) %>" href="<%- url_for(href) -%>" title="<%= name %>" <% if (roleEntry) { %>data-role-entry="<%= roleEntry %>"<% } %>>
+        <% for (name in theme.menu) { const href = theme.menu[name][0]; const roleEntry = href === '/blog.html' ? 'user' : (href === '/admin.html' ? 'admin' : ''); const notificationEntry = href === '/memos.html'; %>
+        <a class="nexmoe-list-item mdui-list-item mdui-ripple <%= is_current(href) %>" href="<%- url_for(href) -%>" title="<%= name %>" <% if (roleEntry) { %>data-role-entry="<%= roleEntry %>"<% } %> <% if (notificationEntry) { %>data-notification-entry<% } %>>
             <i class="mdui-list-item-icon nexmoefont <% if (theme.menu[name][1]){ %><%= theme.menu[name][1] %><%} else{ %><%= 'icon-unorderedlist' %><% } %>"></i>
-            <div class="mdui-list-item-content"><%= name %></div>
+            <div class="mdui-list-item-content"><% if (notificationEntry) { %><span class="sidebar-notification-label"><%= name %><span class="sidebar-notification-dot is-hidden" aria-hidden="true"></span></span><% } else { %><%= name %><% } %></div>
         </a>
         <% } %>
     </div>
@@ -53,7 +53,7 @@
     <div class="nexmoe-copyright">
         &copy; <%= date(new Date(), 'YYYY') %> <%= config.author || config.title %>
         <%= __('Powered by') %> <a href="http://hexo.io/" target="_blank">Hexo</a>
-        & <span>xjh</span>
+        & <span>Ciallo～(∠・ω&lt; )⌒☆</span>
         <%- theme.slotSidebar %>
     </div>
 </div><!-- .nexmoe-drawer -->

@@ -98,12 +98,21 @@
       line-height: 1.7;
       white-space: pre-wrap;
     }
+    .answer-text { margin: 0; white-space: pre-wrap; }
+    .answer-sources {
+      margin-top: 12px;
+      border-top: 1px solid rgba(230, 114, 73, .18);
+      padding-top: 10px;
+    }
+    .answer-sources strong { display: block; margin-bottom: 6px; color: #7b4c3a; }
+    .answer-sources ul { margin: 0; padding-left: 20px; }
+    .answer-sources li + li { margin-top: 4px; }
   </style>
 </head>
 <body>
   <main>
     <div class="assistant-title">
-      <h1>xjh 智能体</h1>
+      <h1>Ciallo～(∠・ω&lt; )⌒☆ 智能体</h1>
       <span>博客问答 · 内容辅助</span>
     </div>
     <p>可以询问当前博客已有文章的内容，也可以让它帮你梳理写作思路。回答记录会同步到数据库日志。</p>
@@ -114,21 +123,54 @@
   <script>
     const apiBase = 'http://127.0.0.1:8080/api';
     const answer = document.getElementById('answer');
+    function renderAnswer(data) {
+      answer.textContent = '';
+      const text = document.createElement('div');
+      text.className = 'answer-text';
+      text.textContent = data.answer || '暂时没有生成回答。';
+      answer.appendChild(text);
+      const sources = Array.isArray(data.sources)
+        ? Array.from(new Set(data.sources.map(item => String(item || '').trim()).filter(Boolean)))
+        : [];
+      if (!sources.length) return;
+      const sourceBox = document.createElement('div');
+      sourceBox.className = 'answer-sources';
+      const title = document.createElement('strong');
+      title.textContent = '依据文章';
+      const list = document.createElement('ul');
+      sources.forEach(function (source) {
+        const item = document.createElement('li');
+        item.textContent = '《' + source + '》';
+        list.appendChild(item);
+      });
+      sourceBox.appendChild(title);
+      sourceBox.appendChild(list);
+      answer.appendChild(sourceBox);
+    }
     document.getElementById('ask').addEventListener('click', async function () {
       const question = document.getElementById('question').value.trim();
+      const token = localStorage.getItem('blogToken') || '';
       if (!question) {
         answer.textContent = '请先输入问题。';
+        return;
+      }
+      if (!token) {
+        answer.textContent = '请先登录博客系统，再使用 AI 问答。';
         return;
       }
       answer.textContent = 'AI 正在思考...';
       try {
         const response = await fetch(apiBase + '/ai/qa', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', 'X-Token': token },
           body: JSON.stringify({ question })
         });
         const json = await response.json();
-        answer.textContent = json.success ? json.data.answer : (json.message || '请求失败');
+        if (json.success) {
+          renderAnswer(json.data || {});
+        } else {
+          answer.textContent = json.message || '请求失败';
+        }
       } catch (error) {
         answer.textContent = '无法连接后端，请先启动系统服务。';
       }

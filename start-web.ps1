@@ -1,8 +1,10 @@
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $MyInvocation.MyCommand.Path
-$java = 'C:\Program Files\Java\jdk1.8.0_201\bin\java.exe'
+$javaHome = [System.Environment]::GetEnvironmentVariable('JAVA_HOME')
+if (-not $javaHome) { $javaHome = 'D:\Java' }
+$java = "$javaHome\bin\java.exe"
 $backendJar = Join-Path $root 'blog-system\backend\target\blog-system-backend-1.0.0.jar'
-$mvn = Join-Path $root 'blog-system\backend\mvn-local.cmd'
+$mvn = 'mvn'
 $frontendDir = Join-Path $root 'demo-site'
 $logDir = Join-Path $root 'tmp\run-logs'
 $backendOut = Join-Path $logDir 'backend.out.log'
@@ -59,7 +61,7 @@ function Clear-BrokenProxyEnv() {
 }
 Clear-BrokenProxyEnv
 if (!(Test-Path $java)) { throw "JDK not found: $java" }
-if (!(Test-Path $mvn)) { throw "Maven helper not found: $mvn" }
+if (-not (Get-Command $mvn -ErrorAction SilentlyContinue)) { throw "Maven command not found: $mvn" }
 
 function Test-BootJar($path) {
   if (!(Test-Path $path)) { return $false }
@@ -98,7 +100,7 @@ function Ensure-BackendJar() {
     Start-Sleep -Seconds 2
   }
   Write-Host 'Backend jar missing, stale, or not executable. Building backend automatically...'
-  & $mvn -q -DskipTests package
+  & $mvn -q -f (Join-Path $backendDir 'pom.xml') -DskipTests package
   if ($LASTEXITCODE -ne 0) { throw 'Backend package failed. Check JDK/Maven and dependency cache.' }
   if (!(Test-Path $backendJar)) { throw "Backend jar still not found after package: $backendJar" }
   if (-not (Test-BootJar $backendJar)) { throw "Backend jar is not executable after package: $backendJar" }
@@ -146,6 +148,19 @@ function Start-Backend() {
   Start-Sleep -Seconds 5
 }
 
+function Restart-BackendIfEnvChanged() {
+  $envFile = Join-Path $root '.env.local'
+  if (!(Test-Path $envFile) -or !(Test-Port 8080)) { return }
+  if (!(Test-Path $backendOut)) { return }
+  $envTime = (Get-Item $envFile).LastWriteTime
+  $backendLogTime = (Get-Item $backendOut).LastWriteTime
+  if ($envTime -gt $backendLogTime) {
+    Write-Host '.env.local changed after backend started. Restarting backend to reload environment variables...'
+    Stop-Port 8080
+    Start-Sleep -Seconds 2
+  }
+}
+
 function Start-Frontend() {
   if (Test-Port 4000) { return }
   $npm = (Get-Command npm.cmd -ErrorAction SilentlyContinue).Source
@@ -173,6 +188,7 @@ if ($script:BackendRebuilt -and (Test-Port 8080)) {
   Stop-Port 8080
   Start-Sleep -Seconds 2
 }
+Restart-BackendIfEnvChanged
 Start-Backend
 
 if (-not (Test-BackendApi)) {

@@ -1,0 +1,51 @@
+---
+title: 用户资料
+permalink: user.html
+cover: /images/background/gongzuotai.jpg
+coverWidth: 1920
+coverHeight: 760
+---
+
+<link rel="stylesheet" href="/blog-system.css">
+
+<section class="blog-app" id="user-profile-page">
+  <header class="blog-app-head">
+    <div>
+      <p class="section-kicker">公开资料</p>
+      <h2>用户主页</h2>
+      <p id="user-profile-intro" class="blog-muted">根据当前账号权限展示邮箱、公开文章与个人相册。</p>
+    </div>
+    <div class="head-actions">
+      <a class="blog-link-btn user-only-link" href="/blog.html">返回工作台</a>
+      <a class="blog-link-btn admin-only-link" href="/admin.html">返回后台</a>
+    </div>
+  </header>
+
+  <section id="user-profile-card" class="blog-panel user-profile-card">
+    <p class="blog-muted">正在加载用户资料...</p>
+  </section>
+
+  <section class="blog-panel">
+    <div class="panel-heading compact-heading">
+      <div>
+        <p class="section-kicker">相册</p>
+        <h2>个人相册</h2>
+        <p id="user-profile-photo-summary" class="blog-muted"></p>
+      </div>
+    </div>
+    <div id="user-profile-photos" class="managed-gallery-grid"></div>
+  </section>
+
+  <section class="blog-panel">
+    <div class="panel-heading compact-heading">
+      <div>
+        <p class="section-kicker">文章</p>
+        <h2>已上架文章</h2>
+        <p id="user-profile-article-summary" class="blog-muted"></p>
+      </div>
+    </div>
+    <div id="user-profile-articles" class="article-grid"></div>
+  </section>
+</section>
+
+<script src="/js/blog-api.js"></script>

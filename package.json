@@ -1,14 +1,14 @@
 {
     "name":  "hexo-theme-tangyuxian",
     "version":  "2.0.0-alpha.3.2",
-    "description":  "xjh local blog system theme.",
+    "description":  "Ciallo～(∠・ω< )⌒☆ local blog system theme.",
     "keywords":  [
                      "hexo",
                      "theme",
                      "blog-system",
-                     "xjh"
+                     "ciallo"
                  ],
-    "author":  "xjh",
+    "author":  "Ciallo～(∠・ω< )⌒☆",
     "license":  "Apache-2.0",
     "main":  "index.js",
     "scripts":  {
@@ -26,10 +26,10 @@
                 },
     "repository":  {
                        "type":  "git",
-                       "url":  "local:xjh-blog-system"
+                       "url":  "local:ciallo-blog-system"
                    },
     "bugs":  {
-                 "url":  "local:xjh-blog-system/issues"
+                 "url":  "local:ciallo-blog-system/issues"
              },
     "homepage":  "http://127.0.0.1:4000/login.html",
     "devDependencies":  {

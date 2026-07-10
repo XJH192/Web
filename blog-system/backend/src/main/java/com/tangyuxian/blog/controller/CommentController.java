@@ -31,8 +31,10 @@ public class CommentController {
     }
 
     @GetMapping("/articles/{articleId}/comments")
-    public ApiResponse<List<Comment>> listByArticle(@PathVariable Long articleId) {
-        return ApiResponse.ok(commentService.listByArticle(articleId, false));
+    public ApiResponse<List<Comment>> listByArticle(@RequestHeader(value = "X-Token", required = false) String token,
+                                                    @PathVariable Long articleId) {
+        User user = optionalUser(token);
+        return ApiResponse.ok(commentService.listByArticle(articleId, false, user == null ? null : user.getId()));
     }
 
     @PostMapping("/articles/{articleId}/comments")
@@ -40,7 +42,11 @@ public class CommentController {
                                        @PathVariable Long articleId,
                                        @RequestBody CommentRequest request) {
         User user = authService.requireUser(token);
-        return ApiResponse.ok("\u8bc4\u8bba\u5df2\u63d0\u4ea4", commentService.create(articleId, user, request));
+        Comment comment = commentService.create(articleId, user, request);
+        String message = comment.getStatus() == com.tangyuxian.blog.model.CommentStatus.APPROVED
+                ? "AI 初审通过，评论已直接公开"
+                : "AI 初审发现疑似问题，已转交管理员审核";
+        return ApiResponse.ok(message, comment);
     }
 
     @GetMapping("/admin/comments")
@@ -63,5 +69,24 @@ public class CommentController {
         authService.requireAdmin(token);
         commentService.delete(id);
         return ApiResponse.ok("\u8bc4\u8bba\u5df2\u5220\u9664", null);
+    }
+
+    @PostMapping("/comments/{id}/like")
+    public ApiResponse<Comment> like(@RequestHeader(value = "X-Token", required = false) String token,
+                                     @PathVariable Long id) {
+        User user = authService.requireUser(token);
+        return ApiResponse.ok("点赞成功", commentService.like(user.getId(), id));
+    }
+
+    @DeleteMapping("/comments/{id}/like")
+    public ApiResponse<Comment> unlike(@RequestHeader(value = "X-Token", required = false) String token,
+                                       @PathVariable Long id) {
+        User user = authService.requireUser(token);
+        return ApiResponse.ok("已取消点赞", commentService.unlike(user.getId(), id));
+    }
+
+    private User optionalUser(String token) {
+        if (token == null || token.trim().isEmpty()) return null;
+        return authService.requireUser(token);
     }
 }

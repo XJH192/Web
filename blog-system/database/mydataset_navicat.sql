@@ -12,6 +12,11 @@ SET NAMES utf8mb4;
 SET FOREIGN_KEY_CHECKS = 0;
 DROP TABLE IF EXISTS ai_usage_logs;
 DROP TABLE IF EXISTS notifications;
+DROP TABLE IF EXISTS user_gallery_settings;
+DROP TABLE IF EXISTS gallery_photos;
+DROP TABLE IF EXISTS private_messages;
+DROP TABLE IF EXISTS user_follows;
+DROP TABLE IF EXISTS comment_likes;
 DROP TABLE IF EXISTS comments;
 DROP TABLE IF EXISTS article_attachments;
 DROP TABLE IF EXISTS article_likes;
@@ -67,6 +72,7 @@ CREATE TABLE articles (
   content MEDIUMTEXT NOT NULL COMMENT '正文',
   attachments_json LONGTEXT DEFAULT NULL COMMENT '文章附件JSON，保存图片/PPT等上传文件',
   status VARCHAR(20) NOT NULL DEFAULT 'PENDING' COMMENT '状态：DRAFT/PENDING/PUBLISHED/REJECTED',
+  ai_review_result VARCHAR(500) DEFAULT NULL COMMENT 'AI文章初审结果',
   view_count INT NOT NULL DEFAULT 0 COMMENT '阅读量',
   like_count INT NOT NULL DEFAULT 0 COMMENT '点赞数',
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
@@ -136,11 +142,72 @@ CREATE TABLE comments (
   CONSTRAINT fk_comments_parent FOREIGN KEY (parent_id) REFERENCES comments (id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='评论与回复表';
 
+-- 9. 评论点赞表：同一用户对同一评论只能点赞一次。
+CREATE TABLE comment_likes (
+  comment_id BIGINT NOT NULL COMMENT '评论ID',
+  user_id BIGINT NOT NULL COMMENT '点赞用户ID',
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '点赞时间',
+  PRIMARY KEY (comment_id, user_id),
+  KEY idx_comment_likes_user (user_id),
+  CONSTRAINT fk_comment_likes_comment FOREIGN KEY (comment_id) REFERENCES comments (id) ON DELETE CASCADE,
+  CONSTRAINT fk_comment_likes_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='评论点赞表';
 
--- 9. 通知消息表：保存文章审核、评论、点赞等未读消息。
+-- 10. 用户关注关系表：同一用户对另一用户只能关注一次。
+CREATE TABLE user_follows (
+  follower_id BIGINT NOT NULL COMMENT '关注者用户ID',
+  followed_id BIGINT NOT NULL COMMENT '被关注用户ID',
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '关注时间',
+  PRIMARY KEY (follower_id, followed_id),
+  KEY idx_user_follows_followed (followed_id),
+  CONSTRAINT fk_user_follows_follower FOREIGN KEY (follower_id) REFERENCES users (id) ON DELETE CASCADE,
+  CONSTRAINT fk_user_follows_followed FOREIGN KEY (followed_id) REFERENCES users (id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户关注关系表';
+
+-- 11. 用户私信表：私信直接发送，不进入 AI 或管理员审核。
+CREATE TABLE private_messages (
+  id BIGINT NOT NULL AUTO_INCREMENT COMMENT '私信ID',
+  sender_id BIGINT NOT NULL COMMENT '发送者用户ID',
+  receiver_id BIGINT NOT NULL COMMENT '接收者用户ID',
+  content VARCHAR(1000) NOT NULL COMMENT '私信内容',
+  read_flag TINYINT(1) NOT NULL DEFAULT 0 COMMENT '是否已读：0未读/1已读',
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '发送时间',
+  PRIMARY KEY (id),
+  KEY idx_private_messages_conversation (sender_id, receiver_id, id),
+  KEY idx_private_messages_receiver_read (receiver_id, read_flag),
+  CONSTRAINT fk_private_messages_sender FOREIGN KEY (sender_id) REFERENCES users (id) ON DELETE CASCADE,
+  CONSTRAINT fk_private_messages_receiver FOREIGN KEY (receiver_id) REFERENCES users (id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户私信表';
+
+-- 12. 相册图片表：每个账户拥有独立相册，最多保存 8 张图片。
+CREATE TABLE gallery_photos (
+  id BIGINT NOT NULL AUTO_INCREMENT COMMENT '图片ID',
+  owner_id BIGINT NOT NULL COMMENT '上传用户ID',
+  title VARCHAR(80) NOT NULL COMMENT '图片标题',
+  description VARCHAR(500) DEFAULT NULL COMMENT '图片说明',
+  image_data_url LONGTEXT NOT NULL COMMENT '图片 Data URL 或站内图片地址',
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '上传时间',
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '修改时间',
+  PRIMARY KEY (id),
+  KEY idx_gallery_photos_owner (owner_id),
+  KEY idx_gallery_photos_updated (updated_at),
+  CONSTRAINT fk_gallery_photos_owner FOREIGN KEY (owner_id) REFERENCES users (id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户相册图片表';
+
+CREATE TABLE user_gallery_settings (
+  user_id BIGINT NOT NULL COMMENT '用户ID',
+  initialized_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '默认相册初始化时间',
+  PRIMARY KEY (user_id),
+  CONSTRAINT fk_user_gallery_settings_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户相册初始化记录';
+
+-- 13. 通知消息表：保存文章审核、评论、点赞等未读消息。
 CREATE TABLE notifications (
   id BIGINT NOT NULL AUTO_INCREMENT COMMENT '通知ID',
   user_id BIGINT NOT NULL COMMENT '接收用户ID',
+  actor_user_id BIGINT DEFAULT NULL COMMENT '触发通知的用户ID',
+  actor_username VARCHAR(50) DEFAULT NULL COMMENT '触发通知时的用户名快照',
+  article_id BIGINT DEFAULT NULL COMMENT '关联文章ID',
   type VARCHAR(40) NOT NULL COMMENT '消息类型',
   title VARCHAR(120) NOT NULL COMMENT '消息标题',
   content VARCHAR(500) NOT NULL COMMENT '消息内容',
@@ -149,10 +216,11 @@ CREATE TABLE notifications (
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   PRIMARY KEY (id),
   KEY idx_notifications_user_read (user_id, read_flag),
+  KEY idx_notifications_article (article_id),
   KEY idx_notifications_created (created_at),
   CONSTRAINT fk_notifications_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='通知消息表';
--- 10. AI 使用日志表：记录摘要、大纲、标签推荐、评论审核和问答调用。
+-- 14. AI 使用日志表：记录摘要、大纲、标签推荐、评论审核和问答调用。
 CREATE TABLE ai_usage_logs (
   id BIGINT NOT NULL AUTO_INCREMENT COMMENT '日志ID',
   user_id BIGINT DEFAULT NULL COMMENT '调用用户ID，当前本地规则模拟可为空',
@@ -170,8 +238,28 @@ CREATE TABLE ai_usage_logs (
 
 -- 初始账号：admin/123456、user/123456。
 INSERT INTO users(username, password, nickname, email, role, banned) VALUES
-('admin', '123456', '管理员', 'admin@xjh.local', 'ADMIN', 0),
-('user', '123456', '普通用户', 'user@xjh.local', 'USER', 0);
+('admin', '123456', '管理员', 'admin@ciallo.local', 'ADMIN', 0),
+('user', '123456', '普通用户', 'user@ciallo.local', 'USER', 0);
+
+INSERT INTO gallery_photos(owner_id, title, description, image_data_url) VALUES
+(1, 'AI 辅助', '记录 AI 与创作碰撞的瞬间', '/images/post/AI.jpg'),
+(1, '前端脚本', 'JavaScript 开发记录', '/images/post/JavaScript.jpg'),
+(1, '类型设计', 'TypeScript 类型与结构', '/images/post/TypeScript.jpg'),
+(1, '样式设计', '页面样式与配色灵感', '/images/post/css.jpg'),
+(1, '交互界面', 'Vue 交互界面留档', '/images/post/vue.jpg'),
+(1, '构建工具', '工程化与构建过程', '/images/post/webpack.jpg'),
+(1, '开发工具', '日常使用的编辑器', '/images/post/editor.jpg'),
+(1, '界面设计', '主题界面视觉记录', '/images/post/ui.jpg'),
+(2, 'AI 辅助', '记录 AI 与创作碰撞的瞬间', '/images/post/AI.jpg'),
+(2, '前端脚本', 'JavaScript 开发记录', '/images/post/JavaScript.jpg'),
+(2, '类型设计', 'TypeScript 类型与结构', '/images/post/TypeScript.jpg'),
+(2, '样式设计', '页面样式与配色灵感', '/images/post/css.jpg'),
+(2, '交互界面', 'Vue 交互界面留档', '/images/post/vue.jpg'),
+(2, '构建工具', '工程化与构建过程', '/images/post/webpack.jpg'),
+(2, '开发工具', '日常使用的编辑器', '/images/post/editor.jpg'),
+(2, '界面设计', '主题界面视觉记录', '/images/post/ui.jpg');
+
+INSERT INTO user_gallery_settings(user_id) VALUES (1), (2);
 
 INSERT INTO categories(name, description) VALUES
 ('技术随笔', '记录 Web、Java 与前端开发内容'),

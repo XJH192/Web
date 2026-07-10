@@ -14,16 +14,47 @@ coverHeight: 760
       <p class="section-kicker">普通用户</p>
       <h2>博客工作台</h2>
       <p id="blog-user-summary" class="blog-muted"></p>
+      <div class="social-count-buttons" id="blog-social-counts">
+        <button type="button" class="social-count-button" data-social-list="following"><strong id="blog-following-count">0</strong><span>关注</span></button>
+        <button type="button" class="social-count-button" data-social-list="followers"><strong id="blog-follower-count">0</strong><span>粉丝</span></button>
+      </div>
     </div>
     <button id="logout-btn" class="danger">退出登录</button>
   </header>
+
+  <section class="blog-panel social-list-panel" id="blog-social-panel" hidden>
+    <div class="panel-heading compact-heading">
+      <div>
+        <p class="section-kicker">社交关系</p>
+        <h2 id="blog-social-title">关注列表</h2>
+      </div>
+      <button id="blog-social-close" type="button" class="secondary">收起</button>
+    </div>
+    <div id="blog-social-list" class="social-user-list"></div>
+  </section>
+
+  <section class="blog-panel global-search-panel" id="global-search-panel">
+    <div class="panel-heading compact-heading">
+      <div>
+        <p class="section-kicker">发现</p>
+        <h2>搜索用户与文章</h2>
+        <p class="blog-muted">输入用户名、昵称或文章标题，快速找到资料卡和公开文章。</p>
+      </div>
+    </div>
+    <form id="global-search-form" class="global-search-form">
+      <input id="global-search-input" type="search" autocomplete="off" placeholder="搜索用户名、昵称或文章标题">
+      <button type="submit">搜索</button>
+    </form>
+    <p id="global-search-status" class="blog-status" aria-live="polite"></p>
+    <div id="global-search-results" class="global-search-results"></div>
+  </section>
 
   <section class="blog-panel blog-panel-accent" id="blog-home-section">
     <div class="panel-heading compact-heading">
       <div>
         <p class="section-kicker">首页</p>
         <h2>已上架博客</h2>
-        <p class="blog-muted">查看已通过审核的文章，支持点赞、评论和下载附件。</p>
+        <p class="blog-muted">查看 AI 初审通过或管理员确认公开的文章，支持点赞、评论和下载附件。</p>
       </div>
       <div id="home-status" class="blog-status" aria-live="polite"></div>
     </div>
@@ -85,7 +116,8 @@ coverHeight: 760
       <div>
         <p class="section-kicker">编辑器</p>
         <h2>发布或编辑文章</h2>
-        <p class="blog-muted">正文、分类、标签和附件会同步保存到 MySQL。</p>
+        <p class="blog-muted">选择“保存草稿”时保存在当前浏览器本地；选择“发布”后才会提交到服务器。</p>
+        <p id="local-article-draft-status" class="blog-muted compact-help" aria-live="polite">正在检查本地草稿...</p>
       </div>
     </div>
     <form id="article-form" class="blog-form editor-form">
@@ -106,8 +138,8 @@ coverHeight: 760
 
         <label class="field-label" for="article-status">保存方式</label>
         <select id="article-status">
-          <option value="PENDING">提交审核</option>
-          <option value="DRAFT">保存草稿</option>
+          <option value="PENDING">发布（AI 初审）</option>
+          <option value="DRAFT">保存到本地草稿</option>
         </select>
 
         <label class="field-label" for="article-tag-input">文章标签</label>

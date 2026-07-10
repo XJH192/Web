@@ -1,5 +1,5 @@
 ---
-title: 关于 xjh 博客系统
+title: "关于 Ciallo～(∠・ω< )⌒☆ 博客系统"
 layout: py
 permalink: about.html
 cover: /images/background/zhuti.jpg
@@ -8,10 +8,10 @@ coverHeight: 620
 toc: true
 ---
 
-<div class="about-page xjh-about-page">
+<div class="about-page ciallo-about-page">
   <section class="about-hero-panel">
     <div>
-      <p class="about-kicker">ABOUT XJH BLOG</p>
+      <p class="about-kicker">ABOUT Ciallo～(∠・ω&lt; )⌒☆ BLOG</p>
       <h2>把 Hexo 主题做成可登录、可审核、可互动的博客系统</h2>
       <p>这个网站保留小埋主题的视觉气质，同时加入 Spring Boot、MySQL、管理员审核、文章互动和 AI 辅助写作。它不是单纯的静态主题展示，而是一个可以完成课程验收演示的完整博客产品。</p>
       <div class="about-actions">
@@ -21,8 +21,8 @@ toc: true
       </div>
     </div>
     <div class="about-profile-card">
-      <img src="/images/head/head.jpg" alt="xjh 博客头像">
-      <strong>xjh 博客系统</strong>
+      <img src="/images/head/head.jpg" alt="Ciallo～(∠・ω&lt; )⌒☆ 博客头像">
+      <strong>Ciallo～(∠・ω&lt; )⌒☆ 博客系统</strong>
       <span>Spring Boot · MySQL · Hexo · AI</span>
     </div>
   </section>

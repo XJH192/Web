@@ -8,16 +8,21 @@ public class Article {
     private Long id;
     private Long authorId;
     private String authorName;
+    private String authorUsername;
     private Long categoryId;
     private String categoryName;
     private String title;
     private String summary;
     private String content;
     private ArticleStatus status;
+    private String aiReviewResult;
     private int viewCount;
     private int likeCount;
     private int commentCount;
     private boolean likedByCurrentUser;
+    private int authorFollowerCount;
+    private boolean authorFollowedByCurrentUser;
+    private boolean mutualFollowWithAuthor;
     private List<Long> tagIds = new ArrayList<Long>();
     private List<String> tagNames = new ArrayList<String>();
     private List<ArticleAttachment> attachments = new ArrayList<ArticleAttachment>();
@@ -30,6 +35,8 @@ public class Article {
     public void setAuthorId(Long authorId) { this.authorId = authorId; }
     public String getAuthorName() { return authorName; }
     public void setAuthorName(String authorName) { this.authorName = authorName; }
+    public String getAuthorUsername() { return authorUsername; }
+    public void setAuthorUsername(String authorUsername) { this.authorUsername = authorUsername; }
     public Long getCategoryId() { return categoryId; }
     public void setCategoryId(Long categoryId) { this.categoryId = categoryId; }
     public String getCategoryName() { return categoryName; }
@@ -42,6 +49,8 @@ public class Article {
     public void setContent(String content) { this.content = content; }
     public ArticleStatus getStatus() { return status; }
     public void setStatus(ArticleStatus status) { this.status = status; }
+    public String getAiReviewResult() { return aiReviewResult; }
+    public void setAiReviewResult(String aiReviewResult) { this.aiReviewResult = aiReviewResult; }
     public int getViewCount() { return viewCount; }
     public void setViewCount(int viewCount) { this.viewCount = viewCount; }
     public int getLikeCount() { return likeCount; }
@@ -50,6 +59,12 @@ public class Article {
     public void setCommentCount(int commentCount) { this.commentCount = commentCount; }
     public boolean isLikedByCurrentUser() { return likedByCurrentUser; }
     public void setLikedByCurrentUser(boolean likedByCurrentUser) { this.likedByCurrentUser = likedByCurrentUser; }
+    public int getAuthorFollowerCount() { return authorFollowerCount; }
+    public void setAuthorFollowerCount(int authorFollowerCount) { this.authorFollowerCount = authorFollowerCount; }
+    public boolean isAuthorFollowedByCurrentUser() { return authorFollowedByCurrentUser; }
+    public void setAuthorFollowedByCurrentUser(boolean authorFollowedByCurrentUser) { this.authorFollowedByCurrentUser = authorFollowedByCurrentUser; }
+    public boolean isMutualFollowWithAuthor() { return mutualFollowWithAuthor; }
+    public void setMutualFollowWithAuthor(boolean mutualFollowWithAuthor) { this.mutualFollowWithAuthor = mutualFollowWithAuthor; }
     public List<Long> getTagIds() { return tagIds; }
     public void setTagIds(List<Long> tagIds) { this.tagIds = tagIds; }
     public List<String> getTagNames() { return tagNames; }

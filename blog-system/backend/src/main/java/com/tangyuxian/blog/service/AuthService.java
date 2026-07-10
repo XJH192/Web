@@ -6,7 +6,9 @@ import com.tangyuxian.blog.dto.LoginResponse;
 import com.tangyuxian.blog.dto.RegisterRequest;
 import com.tangyuxian.blog.model.Role;
 import com.tangyuxian.blog.model.User;
+import com.tangyuxian.blog.repository.GalleryPhotoRepository;
 import com.tangyuxian.blog.repository.InMemoryBlogRepository;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -17,25 +19,35 @@ import java.util.concurrent.ConcurrentMap;
 @Service
 public class AuthService {
     private final InMemoryBlogRepository repository;
+    private final GalleryPhotoRepository galleryPhotoRepository;
     private final ConcurrentMap<String, Long> tokenStore = new ConcurrentHashMap<String, Long>();
 
-    public AuthService(InMemoryBlogRepository repository) {
+    public AuthService(InMemoryBlogRepository repository, GalleryPhotoRepository galleryPhotoRepository) {
         this.repository = repository;
+        this.galleryPhotoRepository = galleryPhotoRepository;
     }
 
     public User register(RegisterRequest request) {
         requireText(request.getUsername(), "请输入用户名");
         requireText(request.getPassword(), "请输入密码");
         requireText(request.getEmail(), "请输入邮箱");
-        if (repository.findUserByUsername(request.getUsername()) != null) {
-            throw new BusinessException("用户名已存在");
+        String username = request.getUsername().trim();
+        if (username.length() > 50) throw new BusinessException("用户名不能超过 50 个字符");
+        if (repository.findUserByUsername(username) != null) {
+            throw new BusinessException("该用户名已被使用，请换一个用户名");
         }
         String email = request.getEmail().trim();
         if (!email.contains("@")) throw new BusinessException("请输入正确的邮箱");
-        String nickname = request.getUsername().trim();
-        User user = new User(null, request.getUsername().trim(), request.getPassword(), nickname, Role.USER, LocalDateTime.now());
+        String nickname = username;
+        User user = new User(null, username, request.getPassword(), nickname, Role.USER, LocalDateTime.now());
         user.setEmail(email);
-        return repository.saveUser(user);
+        try {
+            User saved = repository.saveUser(user);
+            galleryPhotoRepository.ensureInitialized(saved.getId());
+            return saved;
+        } catch (DuplicateKeyException ex) {
+            throw new BusinessException("该用户名已被使用，请换一个用户名");
+        }
     }
 
     public LoginResponse login(AuthRequest request) {
