@@ -66,7 +66,7 @@ memos:
   avatarUrl: /images/head/head.jpg
   nickname: 本地博客系统
   enableFancybox: true
-  footer: 当前为本地动态演示，不依赖外部 Memos 服务。
+  footer: 动态由管理员发布，数据保存在博客系统后端，所有访客均可查看。
   localItems:
     - content: "#moments 博客系统已接入 Spring Boot 后端，文章、评论、分类、标签和 AI 日志都会写入 MySQL。"
       createTime: '2026-07-06T14:30:00+08:00'

@@ -28,3 +28,6 @@ blog-system/docs/.latex_check/
 
 # Personal export, not part of the runnable project
 blog-system/docs/对话记录导出.md
+
+# Course defense slides, not part of the runnable project
+deliverables/

@@ -1,6 +1,6 @@
 -- Ciallo～(∠・ω< )⌒☆ 多用户智能博客系统数据库初始化脚本
 -- 数据库名：mydataset
--- 使用说明：本脚本适合首次初始化或重置演示库，会先 DROP 再重建 15 张业务表。
+-- 使用说明：本脚本适合首次初始化或重置演示库，会先 DROP 再重建 17 张业务表。
 -- 如需保留本地测试数据，请先备份数据库，或只手动执行需要的 ALTER/CREATE 语句。
 
 CREATE DATABASE IF NOT EXISTS mydataset
@@ -13,6 +13,8 @@ SET NAMES utf8mb4;
 SET FOREIGN_KEY_CHECKS = 0;
 DROP TABLE IF EXISTS ai_usage_logs;
 DROP TABLE IF EXISTS notifications;
+DROP TABLE IF EXISTS moment_images;
+DROP TABLE IF EXISTS moments;
 DROP TABLE IF EXISTS user_gallery_settings;
 DROP TABLE IF EXISTS gallery_photos;
 DROP TABLE IF EXISTS private_messages;
@@ -203,7 +205,31 @@ CREATE TABLE user_gallery_settings (
   CONSTRAINT fk_user_gallery_settings_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户相册初始化记录';
 
--- 14. 通知表：保存点赞、评论、关注、私信、文章发布和文章删除等消息。
+-- 14. 动态表：管理员发布的动态（说说/随笔），支持纯文字或文字配图。
+CREATE TABLE moments (
+  id BIGINT NOT NULL AUTO_INCREMENT COMMENT '动态ID',
+  author_id BIGINT NOT NULL COMMENT '发布者用户ID（管理员）',
+  content VARCHAR(2000) DEFAULT NULL COMMENT '动态文字内容',
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '发布时间',
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  PRIMARY KEY (id),
+  KEY idx_moments_author (author_id),
+  KEY idx_moments_created (created_at),
+  CONSTRAINT fk_moments_author FOREIGN KEY (author_id) REFERENCES users (id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='管理员动态表';
+
+-- 15. 动态配图表：一条动态可包含多张配图，图片以 Data URL 保存。
+CREATE TABLE moment_images (
+  id BIGINT NOT NULL AUTO_INCREMENT COMMENT '配图ID',
+  moment_id BIGINT NOT NULL COMMENT '所属动态ID',
+  image_data_url LONGTEXT NOT NULL COMMENT '图片 Data URL 或站内图片地址',
+  sort_order INT NOT NULL DEFAULT 0 COMMENT '排序序号',
+  PRIMARY KEY (id),
+  KEY idx_moment_images_moment (moment_id),
+  CONSTRAINT fk_moment_images_moment FOREIGN KEY (moment_id) REFERENCES moments (id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='动态配图表';
+
+-- 16. 通知表：保存点赞、评论、关注、私信、文章发布和文章删除等消息。
 CREATE TABLE notifications (
   id BIGINT NOT NULL AUTO_INCREMENT COMMENT '通知ID',
   user_id BIGINT NOT NULL COMMENT '接收用户ID',
@@ -223,7 +249,7 @@ CREATE TABLE notifications (
   CONSTRAINT fk_notifications_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='通知消息表';
 
--- 15. AI 使用日志表：记录大纲、摘要、标签推荐、审核和问答调用。
+-- 17. AI 使用日志表：记录大纲、摘要、标签推荐、审核和问答调用。
 CREATE TABLE ai_usage_logs (
   id BIGINT NOT NULL AUTO_INCREMENT COMMENT '日志ID',
   user_id BIGINT DEFAULT NULL COMMENT '调用用户ID',
@@ -303,6 +329,14 @@ INSERT INTO gallery_photos(owner_id, title, description, image_data_url) VALUES
 
 INSERT INTO user_gallery_settings(user_id) VALUES
 (1), (2);
+
+INSERT INTO moments(author_id, content) VALUES
+(1, '欢迎来到博客动态！除了正式文章，管理员也会在这里分享日常碎碎念和随手拍。'),
+(1, '今天完成了动态功能的开发，支持纯文字或文字配图，最多九张图片，点击可放大查看。');
+
+INSERT INTO moment_images(moment_id, image_data_url, sort_order) VALUES
+(2, '/images/post/AI.jpg', 0),
+(2, '/images/post/ui.jpg', 1);
 
 INSERT INTO ai_usage_logs(user_id, feature, prompt, thinking, result) VALUES
 (1, 'AI_SUMMARY', '演示文章摘要生成', '本地演示日志，用于展示管理员 AI 使用记录。', 'AI 辅助博客系统可以生成摘要、推荐标签并辅助审核内容。');

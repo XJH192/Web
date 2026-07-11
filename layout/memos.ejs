@@ -1,5 +1,26 @@
-﻿<section class="nexmoe-memos">
+<section class="nexmoe-memos">
   <div id="memos-wrapper">
+    <form id="memo-composer" class="memo-composer" hidden>
+      <div class="memo-composer-head">
+        <img class="memo-composer-avatar" src="<%= theme.memos.avatarUrl || theme.avatar %>" alt="avatar">
+        <div>
+          <div class="memo-composer-name" id="memo-composer-name"><%= theme.memos.nickname || config.title %></div>
+          <div class="memo-composer-tip">管理员动态 · 仅管理员可发布，所有访客均可查看</div>
+        </div>
+      </div>
+      <textarea id="memo-input" maxlength="2000" rows="3" placeholder="分享此刻的想法…（支持配图，最多 9 张）"></textarea>
+      <div class="memo-composer-previews" id="memo-previews"></div>
+      <div class="memo-composer-actions">
+        <label class="memo-upload" for="memo-file"><span class="memo-upload-icon">＋</span> 添加图片</label>
+        <input id="memo-file" type="file" accept="image/jpeg,image/png,image/webp,image/gif" multiple hidden>
+        <span id="memo-counter" class="memo-counter">0 / 2000</span>
+        <span class="memo-composer-spacer"></span>
+        <button type="button" id="memo-cancel" class="memo-btn-ghost" hidden>取消编辑</button>
+        <button type="submit" id="memo-submit" class="memo-btn">发布动态</button>
+      </div>
+      <p id="memo-status" class="memo-status" aria-live="polite"></p>
+    </form>
+
     <div id="memos-container">
       <div class="memos-loading"><%= __('memos.loading') %></div>
     </div>
@@ -38,11 +59,46 @@
   .memo-name { color: var(--color-primary); font-weight: 600; font-size: 15px; margin-bottom: 4px; }
   .memo-text { color: var(--color-text-1); font-size: 15px; line-height: 1.6; white-space: pre-wrap; word-wrap: break-word; }
   .memo-text a { color: var(--color-primary); }
-  .memo-meta { color: var(--color-text-2); font-size: 12px; margin-top: 8px; }
+  .memo-meta { color: var(--color-text-2); font-size: 12px; margin-top: 8px; display: flex; align-items: center; gap: 12px; }
   .memo-gallery { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; max-width: 420px; margin-top: 8px; }
   .memo-gallery[data-count="1"] { display: block; }
-  .memo-gallery img { width: 100%; max-height: 220px; object-fit: cover; border-radius: 6px; }
+  .memo-gallery[data-count="2"], .memo-gallery[data-count="4"] { grid-template-columns: repeat(2, 1fr); max-width: 300px; }
+  .memo-gallery a { display: block; }
+  .memo-gallery img { width: 100%; height: 100%; max-height: 220px; object-fit: cover; border-radius: 6px; aspect-ratio: 1 / 1; }
+  .memo-gallery[data-count="1"] img { aspect-ratio: auto; max-height: 360px; width: auto; max-width: 100%; object-fit: contain; }
   .load-btn { background: var(--color-card); border: 1px solid var(--color-primary-bg); color: var(--color-text-2); padding: 6px 28px; border-radius: 6px; cursor: pointer; }
+
+  /* 管理员动态操作 */
+  .memo-actions { display: inline-flex; gap: 8px; }
+  .memo-action-btn { background: none; border: none; padding: 0; color: var(--color-text-2); cursor: pointer; font-size: 12px; }
+  .memo-action-btn:hover { color: var(--color-primary); }
+  .memo-action-btn.is-danger:hover { color: var(--color-danger, #d92d20); }
+
+  /* 管理员发布区 */
+  .memo-composer { margin: 4px 0 8px; padding: 16px; border: 1px solid var(--color-primary-bg); border-radius: 12px; background: var(--color-card); }
+  .memo-composer-head { display: flex; gap: 10px; align-items: center; margin-bottom: 10px; }
+  .memo-composer-avatar { width: 40px; height: 40px; border-radius: 8px; object-fit: cover; }
+  .memo-composer-name { color: var(--color-primary); font-weight: 700; font-size: 15px; }
+  .memo-composer-tip { color: var(--color-text-2); font-size: 12px; margin-top: 2px; }
+  .memo-composer textarea { width: 100%; box-sizing: border-box; border: 1px solid var(--color-primary-bg); border-radius: 8px; background: var(--color-bg, #fff); color: var(--color-text-1); padding: 10px 12px; font: inherit; font-size: 15px; line-height: 1.6; resize: vertical; min-height: 76px; }
+  .memo-composer textarea:focus { outline: none; border-color: var(--color-primary); }
+  .memo-composer-previews { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 8px; margin-top: 10px; }
+  .memo-composer-previews:empty { display: none; }
+  .memo-preview { position: relative; aspect-ratio: 1 / 1; border-radius: 8px; overflow: hidden; border: 1px solid var(--color-primary-bg); }
+  .memo-preview img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .memo-preview-remove { position: absolute; top: 3px; right: 3px; width: 20px; height: 20px; border: none; border-radius: 50%; background: rgba(0,0,0,.55); color: #fff; font-size: 13px; line-height: 1; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+  .memo-preview-remove:hover { background: var(--color-danger, #d92d20); }
+  .memo-composer-actions { display: flex; align-items: center; gap: 12px; margin-top: 12px; flex-wrap: wrap; }
+  .memo-composer-spacer { flex: 1 1 auto; }
+  .memo-upload { display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; border: 1px dashed var(--color-primary); border-radius: 999px; color: var(--color-primary); cursor: pointer; font-size: 14px; }
+  .memo-upload-icon { font-size: 16px; line-height: 1; }
+  .memo-counter { color: var(--color-text-2); font-size: 12px; }
+  .memo-btn { background: var(--color-primary); border: none; color: #fff; padding: 8px 22px; border-radius: 999px; cursor: pointer; font-size: 14px; font-weight: 600; }
+  .memo-btn:hover { opacity: .92; }
+  .memo-btn:disabled { opacity: .55; cursor: not-allowed; }
+  .memo-btn-ghost { background: var(--color-card); border: 1px solid var(--color-primary-bg); color: var(--color-text-1); padding: 8px 16px; border-radius: 999px; cursor: pointer; font-size: 14px; }
+  .memo-status { margin: 10px 0 0; min-height: 18px; color: var(--color-primary); font-size: 13px; }
+
   .nexmoe-notifications { padding: 0 0 36px; }
   .notification-wrapper { max-width: 800px; margin: 0 auto; padding: 18px 20px 0; border-top: 1px solid var(--color-primary-bg); }
   .notification-head { display: flex; justify-content: space-between; gap: 16px; align-items: flex-start; margin-bottom: 12px; }
@@ -66,26 +122,80 @@
   @media (max-width: 640px) {
     .notification-head { display: block; }
     .notification-actions { justify-content: flex-start; margin-top: 12px; }
+    .memo-gallery, .memo-gallery[data-count="1"] { max-width: 100%; }
   }
 </style>
 
 <script>
 document.addEventListener('DOMContentLoaded', function () {
   const CONFIG = {
-    host: '<%= theme.memos.host || '' %>',
-    pageSize: Number('<%= theme.memos.pageSize || 10 %>'),
+    apiBase: (window.BLOG_API_BASE || 'http://127.0.0.1:8080/api'),
     avatarUrl: '<%= theme.memos.avatarUrl || theme.avatar %>',
     nickname: '<%= theme.memos.nickname || config.title %>',
     enableFancybox: <%= theme.memos.enableFancybox === false ? 'false' : 'true' %>,
-    filter: '<%= theme.memos.filter || '#memos' %>',
     footer: '<%= theme.memos.footer || '' %>'
   };
-  const LOCAL_ITEMS = <%- JSON.stringify(theme.memos.localItems || []) %>;
+  const MAX_IMAGES = 9;
+  const MAX_IMAGE_SIZE = 6 * 1024 * 1024;
+
   const container = document.getElementById('memos-container');
   const loadMore = document.getElementById('memos-load-more');
+  const composer = document.getElementById('memo-composer');
+  const input = document.getElementById('memo-input');
+  const fileInput = document.getElementById('memo-file');
+  const previews = document.getElementById('memo-previews');
+  const counter = document.getElementById('memo-counter');
+  const submitBtn = document.getElementById('memo-submit');
+  const cancelBtn = document.getElementById('memo-cancel');
+  const statusEl = document.getElementById('memo-status');
+
+  let isAdmin = false;
+  let moments = [];
+  let editingId = null;
+  let selectedImages = [];
+
+  function token() { return localStorage.getItem('blogToken') || ''; }
+
+  async function api(path, options) {
+    const opts = options || {};
+    const headers = Object.assign({ 'Content-Type': 'application/json' }, opts.headers || {});
+    if (token()) headers['X-Token'] = token();
+    let response;
+    try {
+      response = await fetch(CONFIG.apiBase + path, Object.assign({}, opts, { headers }));
+    } catch (error) {
+      throw new Error('无法连接后端，请确认服务已启动');
+    }
+    let json;
+    try { json = await response.json(); } catch (error) { throw new Error('后端返回格式异常'); }
+    if (!response.ok || !json.success) throw new Error(json.message || '请求失败');
+    return json.data;
+  }
+
+  function escapeHtml(value) {
+    return String(value == null ? '' : value)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+
+  function safeImageUrl(value) {
+    const url = String(value || '');
+    if (/^data:image\/(jpeg|png|webp|gif);base64,/i.test(url)) return url;
+    if (/^\/images\//.test(url) && !/[<>"']/.test(url)) return url;
+    return '';
+  }
+
+  function parseContent(text) {
+    return escapeHtml(text)
+      .replace(/\[([^\]]+)\]\((https?:[^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>')
+      .replace(/#(\S+)/g, '<span style="color:var(--color-primary)">#$1</span>')
+      .replace(/\r?\n/g, '<br>');
+  }
 
   function formatTime(value) {
+    if (!value) return '';
     const date = new Date(value).getTime();
+    if (isNaN(date)) return '';
     const seconds = Math.abs(Date.now() - date) / 1000;
     if (seconds < 60) return '<%= __('memos.just_now') %>';
     if (seconds < 3600) return Math.floor(seconds / 60) + ' <%= __('memos.minutes_ago') %>';
@@ -94,55 +204,182 @@ document.addEventListener('DOMContentLoaded', function () {
     return Math.floor(seconds / 86400) + ' <%= __('memos.days_ago') %>';
   }
 
-  function parseContent(text) {
-    return String(text || '')
-      .replace(new RegExp(CONFIG.filter, 'g'), '')
-      .replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<a href="$2" data-fancybox="memos"><img src="$2" alt="$1" loading="lazy"></a>')
-      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>')
-      .replace(/#(\S+)/g, '<span style="color:var(--color-primary)">#$1</span>');
+  function galleryHtml(moment) {
+    const images = (moment.images || []).map(safeImageUrl).filter(Boolean);
+    if (!images.length) return '';
+    const cells = images.map(function (url) {
+      const safe = escapeHtml(url);
+      return '<a href="' + safe + '" data-fancybox="memo-' + moment.id + '"><img src="' + safe + '" alt="配图" loading="lazy"></a>';
+    }).join('');
+    return '<div class="memo-gallery" data-count="' + Math.min(images.length, 9) + '">' + cells + '</div>';
   }
 
-  function renderItems(items) {
-    container.innerHTML = '';
-    if (!items.length) {
+  function actionsHtml(moment) {
+    if (!isAdmin) return '';
+    return '<span class="memo-actions">'
+      + '<button type="button" class="memo-action-btn" data-edit="' + moment.id + '">编辑</button>'
+      + '<button type="button" class="memo-action-btn is-danger" data-delete="' + moment.id + '">删除</button>'
+      + '</span>';
+  }
+
+  function renderItems() {
+    if (!moments.length) {
       container.innerHTML = '<div class="memos-loading"><%= __('memos.no_dynamic') %></div>';
       return;
     }
-    items.forEach(function (item) {
-      const html = '<div class="memo-item">'
-        + '<div class="memo-avatar"><img src="' + CONFIG.avatarUrl + '" alt="avatar"></div>'
+    container.innerHTML = moments.map(function (moment) {
+      const name = escapeHtml(moment.authorNickname || moment.authorUsername || CONFIG.nickname);
+      const textHtml = moment.content ? '<div class="memo-text">' + parseContent(moment.content) + '</div>' : '';
+      return '<div class="memo-item" data-id="' + moment.id + '">'
+        + '<div class="memo-avatar"><img src="' + escapeHtml(CONFIG.avatarUrl) + '" alt="avatar"></div>'
         + '<div class="memo-content-wrapper">'
-        + '<div class="memo-name">' + CONFIG.nickname + '</div>'
-        + '<div class="memo-text">' + parseContent(item.content || '') + '</div>'
-        + '<div class="memo-meta">' + formatTime(item.createTime || new Date()) + '</div>'
+        + '<div class="memo-name">' + name + '</div>'
+        + textHtml
+        + galleryHtml(moment)
+        + '<div class="memo-meta"><span>' + formatTime(moment.createdAt) + '</span>' + actionsHtml(moment) + '</div>'
         + '</div></div>';
-      container.insertAdjacentHTML('beforeend', html);
-    });
+    }).join('');
     loadMore.style.display = 'none';
-  }
-
-  async function loadRemoteMemos() {
-    try {
-      const url = CONFIG.host + '/api/v1/memos?pageSize=' + CONFIG.pageSize + '&filter=content.contains(' + encodeURIComponent("'" + CONFIG.filter + "'") + ')';
-      const res = await fetch(url);
-      if (!res.ok) throw new Error('Request failed');
-      const data = await res.json();
-      renderItems(data.memos || []);
-    } catch (error) {
-      console.error(error);
-      renderItems(LOCAL_ITEMS);
+    if (CONFIG.enableFancybox && window.Fancybox && typeof window.Fancybox.bind === 'function') {
+      window.Fancybox.bind('[data-fancybox^="memo-"]', {});
     }
   }
 
-  if (CONFIG.host) loadRemoteMemos();
-  else renderItems(LOCAL_ITEMS);
-
-  if (CONFIG.footer) {
-    const footer = document.createElement('div');
-    footer.style.cssText = 'text-align:center;margin:16px 0 0;font-size:12px;color:var(--color-text-2)';
-    footer.textContent = CONFIG.footer;
-    document.getElementById('memos-wrapper').appendChild(footer);
+  async function loadMoments() {
+    try {
+      moments = await api('/moments') || [];
+      renderItems();
+    } catch (error) {
+      container.innerHTML = '<div class="memos-loading">' + escapeHtml(error.message) + '</div>';
+    }
   }
+
+  /* ---------- 管理员发布区 ---------- */
+  function updateCounter() { counter.textContent = (input.value || '').length + ' / 2000'; }
+
+  function renderPreviews() {
+    previews.innerHTML = selectedImages.map(function (url, index) {
+      return '<div class="memo-preview"><img src="' + escapeHtml(url) + '" alt="待发布图片">'
+        + '<button type="button" class="memo-preview-remove" data-remove="' + index + '" aria-label="移除">×</button></div>';
+    }).join('');
+  }
+
+  function resetComposer() {
+    editingId = null;
+    selectedImages = [];
+    input.value = '';
+    renderPreviews();
+    updateCounter();
+    cancelBtn.hidden = true;
+    submitBtn.textContent = '发布动态';
+    statusEl.textContent = '';
+  }
+
+  function readImage(file) {
+    return new Promise(function (resolve, reject) {
+      if (!/^image\/(jpeg|png|webp|gif)$/i.test(file.type)) { reject(new Error('仅支持 JPG、PNG、WebP 或 GIF 图片')); return; }
+      if (file.size > MAX_IMAGE_SIZE) { reject(new Error('单张图片超过 6MB，请压缩后再上传')); return; }
+      const reader = new FileReader();
+      reader.onload = function () { resolve(String(reader.result || '')); };
+      reader.onerror = function () { reject(new Error('图片读取失败，请重试')); };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  function wireComposer() {
+    composer.hidden = false;
+    updateCounter();
+    input.addEventListener('input', updateCounter);
+
+    fileInput.addEventListener('change', async function () {
+      const files = Array.prototype.slice.call(this.files || []);
+      this.value = '';
+      if (!files.length) return;
+      if (selectedImages.length + files.length > MAX_IMAGES) { statusEl.textContent = '每条动态最多上传 ' + MAX_IMAGES + ' 张图片。'; return; }
+      statusEl.textContent = '正在读取图片...';
+      try {
+        for (const file of files) { selectedImages.push(await readImage(file)); }
+        renderPreviews();
+        statusEl.textContent = '图片已就绪，可以发布。';
+      } catch (error) { statusEl.textContent = error.message; }
+    });
+
+    previews.addEventListener('click', function (event) {
+      const btn = event.target.closest('[data-remove]');
+      if (!btn) return;
+      selectedImages.splice(Number(btn.getAttribute('data-remove')), 1);
+      renderPreviews();
+    });
+
+    cancelBtn.addEventListener('click', function () { resetComposer(); });
+
+    composer.addEventListener('submit', async function (event) {
+      event.preventDefault();
+      const content = input.value.trim();
+      if (!content && !selectedImages.length) { statusEl.textContent = '请填写文字内容，或至少上传一张图片。'; return; }
+      const payload = { content: content, images: selectedImages };
+      try {
+        const wasEditing = !!editingId;
+        submitBtn.disabled = true;
+        statusEl.textContent = wasEditing ? '正在保存修改...' : '正在发布动态...';
+        await api('/moments' + (editingId ? '/' + editingId : ''), { method: editingId ? 'PUT' : 'POST', body: JSON.stringify(payload) });
+        resetComposer();
+        await loadMoments();
+        statusEl.textContent = wasEditing ? '动态已更新。' : '动态发布成功。';
+      } catch (error) { statusEl.textContent = error.message; }
+      finally { submitBtn.disabled = false; }
+    });
+
+    container.addEventListener('click', async function (event) {
+      const editBtn = event.target.closest('[data-edit]');
+      const deleteBtn = event.target.closest('[data-delete]');
+      if (editBtn) {
+        const moment = moments.find(function (m) { return String(m.id) === editBtn.getAttribute('data-edit'); });
+        if (!moment) return;
+        editingId = moment.id;
+        selectedImages = (moment.images || []).map(safeImageUrl).filter(Boolean);
+        input.value = moment.content || '';
+        renderPreviews();
+        updateCounter();
+        cancelBtn.hidden = false;
+        submitBtn.textContent = '保存修改';
+        statusEl.textContent = '正在编辑这条动态。';
+        composer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        return;
+      }
+      if (deleteBtn) {
+        if (!confirm('确认删除这条动态吗？此操作无法撤销。')) return;
+        try {
+          deleteBtn.disabled = true;
+          await api('/moments/' + encodeURIComponent(deleteBtn.getAttribute('data-delete')), { method: 'DELETE' });
+          if (String(editingId) === deleteBtn.getAttribute('data-delete')) resetComposer();
+          await loadMoments();
+        } catch (error) { alert(error.message); deleteBtn.disabled = false; }
+      }
+    });
+  }
+
+  async function init() {
+    if (token()) {
+      try {
+        const me = await api('/auth/me');
+        if (me && me.role === 'ADMIN') {
+          isAdmin = true;
+          document.getElementById('memo-composer-name').textContent = me.nickname || me.username || CONFIG.nickname;
+          wireComposer();
+        }
+      } catch (error) { /* 未登录或登录失效：按访客处理 */ }
+    }
+    await loadMoments();
+    if (CONFIG.footer) {
+      const footer = document.createElement('div');
+      footer.style.cssText = 'text-align:center;margin:16px 0 0;font-size:12px;color:var(--color-text-2)';
+      footer.textContent = CONFIG.footer;
+      document.getElementById('memos-wrapper').appendChild(footer);
+    }
+  }
+
+  init();
 });
 </script>
 <script src="/js/blog-api.js"></script>

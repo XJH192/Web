@@ -4,8 +4,8 @@ $javaHome = [System.Environment]::GetEnvironmentVariable('JAVA_HOME')
 if (-not $javaHome) { $javaHome = 'D:\Java' }
 $java = "$javaHome\bin\java.exe"
 $backendJar = Join-Path $root 'blog-system\backend\target\blog-system-backend-1.0.0.jar'
-$mvn = 'mvn'
 $frontendDir = Join-Path $root 'demo-site'
+$backendDir = Join-Path $root 'blog-system\backend'
 $logDir = Join-Path $root 'tmp\run-logs'
 $backendOut = Join-Path $logDir 'backend.out.log'
 $backendErr = Join-Path $logDir 'backend.err.log'
@@ -61,7 +61,33 @@ function Clear-BrokenProxyEnv() {
 }
 Clear-BrokenProxyEnv
 if (!(Test-Path $java)) { throw "JDK not found: $java" }
-if (-not (Get-Command $mvn -ErrorAction SilentlyContinue)) { throw "Maven command not found: $mvn" }
+
+function Resolve-MavenCommand() {
+  $localMvn = Join-Path $backendDir 'mvn-local.cmd'
+  $candidates = @(
+    $localMvn,
+    'mvn.cmd',
+    'mvn',
+    'D:\IDEA\IntelliJ IDEA 2025.2.1\plugins\maven\lib\maven3\bin\mvn.cmd',
+    'C:\Program Files\JetBrains\IntelliJ IDEA 2025.2.1\plugins\maven\lib\maven3\bin\mvn.cmd',
+    'C:\Program Files\JetBrains\IntelliJ IDEA Community Edition 2025.2.1\plugins\maven\lib\maven3\bin\mvn.cmd'
+  )
+  foreach ($candidate in $candidates) {
+    if ($candidate -match '^[A-Za-z]:\\') {
+      if (Test-Path $candidate) { return $candidate }
+      continue
+    }
+    $cmd = Get-Command $candidate -ErrorAction SilentlyContinue
+    if ($cmd) { return $cmd.Source }
+  }
+  return $null
+}
+
+$mvn = Resolve-MavenCommand
+if (-not $mvn) {
+  throw "Maven command not found. Install Maven or keep IntelliJ bundled Maven available, then run npm run web again."
+}
+Write-Host "Using Maven: $mvn"
 
 function Test-BootJar($path) {
   if (!(Test-Path $path)) { return $false }
@@ -211,3 +237,4 @@ if (Test-BackendApi) {
 Start-Process 'http://127.0.0.1:4000/login.html'
 Write-Host 'Started: http://127.0.0.1:4000/login.html'
 Write-Host 'Backend runs hidden on http://127.0.0.1:8080/api and syncs data to MySQL mydataset.'
+

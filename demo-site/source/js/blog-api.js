@@ -122,7 +122,7 @@
     if (!user) {
       setLinksByHref('/blog.html', true);
       setLinksByHref('/admin.html', false);
-      setLinksByHref('/memos.html', false);
+      setLinksByHref('/memos.html', true);
       setLinksByHref('/messages.html', false);
       document.querySelectorAll('.admin-only-link').forEach(el => { el.style.display = 'none'; });
       document.querySelectorAll('.user-only-link').forEach(el => { el.style.display = 'inline-block'; });

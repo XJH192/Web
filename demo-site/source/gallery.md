@@ -2,9 +2,9 @@
 title: 相册
 date: 2026-07-06 14:40:00
 permalink: gallery.html
-cover: /images/post/ui.jpg
-coverWidth: 1200
-coverHeight: 320
+cover: /images/background/相册.jpg
+coverWidth: 1920
+coverHeight: 760
 tags:
   - 主题展示
   - 相册
