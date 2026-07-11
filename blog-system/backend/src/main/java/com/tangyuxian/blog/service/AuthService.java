@@ -75,6 +75,11 @@ public class AuthService {
         return user;
     }
 
+    public User optionalUser(String token) {
+        if (token == null || token.trim().isEmpty()) return null;
+        return requireUser(token);
+    }
+
     public User requireAdmin(String token) {
         User user = requireUser(token);
         if (user.getRole() != Role.ADMIN) throw new BusinessException("需要管理员权限");

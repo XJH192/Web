@@ -23,24 +23,36 @@
                 try { return JSON.parse(localStorage.getItem('blogUser') || 'null'); }
                 catch (error) { return null; }
             }
+            function readToken() {
+                try { return localStorage.getItem('blogToken') || ''; }
+                catch (error) { return ''; }
+            }
+            function isGuestMode() {
+                try { return sessionStorage.getItem('cialloGuestMode') === '1' || !readToken(); }
+                catch (error) { return !readToken(); }
+            }
             function showEntry(entry, visible) {
                 if (!entry) return;
                 entry.style.display = visible ? 'flex' : 'none';
             }
-            const user = readUser();
+            const user = isGuestMode() ? null : readUser();
             const userEntry = document.querySelector('[data-role-entry="user"]');
             const adminEntry = document.querySelector('[data-role-entry="admin"]');
+            const notificationEntry = document.querySelector('[data-notification-entry]');
             if (!user) {
-                showEntry(userEntry, false);
+                showEntry(userEntry, true);
                 showEntry(adminEntry, false);
+                showEntry(notificationEntry, false);
                 return;
             }
             if (user.role === 'ADMIN') {
                 showEntry(userEntry, false);
                 showEntry(adminEntry, true);
+                showEntry(notificationEntry, true);
             } else {
                 showEntry(userEntry, true);
                 showEntry(adminEntry, false);
+                showEntry(notificationEntry, true);
             }
         }());
     </script>

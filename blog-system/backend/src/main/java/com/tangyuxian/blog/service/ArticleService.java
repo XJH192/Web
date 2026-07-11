@@ -67,6 +67,9 @@ public class ArticleService {
     public Article detail(Long id, boolean increaseViews, Long viewerId) {
         Article article = repository.findArticleById(id);
         if (article == null) throw new BusinessException("文章不存在");
+        if (viewerId == null && article.getStatus() != ArticleStatus.PUBLISHED) {
+            throw new BusinessException("文章未公开，登录后才可查看");
+        }
         if (increaseViews) {
             article.setViewCount(article.getViewCount() + 1);
             article = repository.saveArticle(article);

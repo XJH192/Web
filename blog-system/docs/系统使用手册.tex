@@ -1,0 +1,851 @@
+\documentclass[UTF8,a4paper,12pt]{ctexart}
+
+\usepackage{geometry}
+\usepackage[table]{xcolor}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage{tabularx}
+\usepackage{enumitem}
+\usepackage{tikz}
+\usepackage{float}
+\usepackage{fancyhdr}
+\usepackage{hyperref}
+\usepackage{titlesec}
+\usepackage{caption}
+\usepackage{fvextra}
+
+\geometry{left=2.6cm,right=2.6cm,top=2.5cm,bottom=2.5cm}
+\IfFontExistsTF{Microsoft YaHei}{
+  \setmainfont{Microsoft YaHei}
+  \setsansfont{Microsoft YaHei}
+  \setCJKmainfont{Microsoft YaHei}
+  \setCJKsansfont{Microsoft YaHei}
+}{}
+\IfFontExistsTF{Consolas}{\setmonofont{Consolas}}{}
+\setlength{\headheight}{15pt}
+\usetikzlibrary{arrows.meta,positioning,shapes.geometric,shapes.misc,calc}
+
+\definecolor{mainorange}{HTML}{C97932}
+\definecolor{lightorange}{HTML}{FFF3E3}
+\definecolor{linegray}{HTML}{B59A7A}
+\definecolor{tablehead}{HTML}{FFE4C4}
+\definecolor{codebg}{HTML}{FFF8EF}
+
+\hypersetup{
+  colorlinks=true,
+  linkcolor=mainorange,
+  urlcolor=mainorange,
+  citecolor=mainorange,
+  pdfauthor={Ciallo 项目组},
+  pdftitle={Ciallo～(∠・ω< )⌒☆ 多用户智能博客系统使用手册}
+}
+
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{Ciallo～(∠・ω< )⌒☆ 多用户智能博客系统}
+\fancyhead[R]{系统使用手册}
+\fancyfoot[C]{\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+
+\titleformat{\section}{\Large\bfseries\color{mainorange}}{\thesection}{0.8em}{}
+\titleformat{\subsection}{\large\bfseries\color{mainorange}}{\thesubsection}{0.8em}{}
+\titleformat{\subsubsection}{\normalsize\bfseries}{\thesubsubsection}{0.8em}{}
+
+\setlist[itemize]{leftmargin=2em,itemsep=0.2em,topsep=0.3em}
+\setlist[enumerate]{leftmargin=2em,itemsep=0.2em,topsep=0.3em}
+\renewcommand{\arraystretch}{1.35}
+\setlength{\parindent}{2em}
+\setlength{\parskip}{0.2em}
+\emergencystretch=3em
+
+\newcommand{\ProjectName}{Ciallo～(∠・ω< )⌒☆ 多用户智能博客系统}
+\newcommand{\CourseName}{Web 高级程序设计实训}
+\newcommand{\DocVersion}{V1.0}
+\newcommand{\DocDate}{2026 年 7 月 9 日}
+\newcommand{\GroupName}{1 组}
+\newcommand{\TeacherName}{李玉莹}
+
+\newcommand{\code}[1]{\texttt{#1}}
+\DefineVerbatimEnvironment{codeblock}{Verbatim}{
+  fontsize=\small,
+  breaklines=true,
+  breakanywhere=true,
+  frame=single,
+  framesep=6pt,
+  rulecolor=\color{mainorange!35},
+  bgcolor=codebg
+}
+
+\newcommand{\screenshotplaceholder}[2]{
+  \begin{figure}[H]
+  \centering
+  \begin{tikzpicture}
+    \node[
+      draw=mainorange!55,
+      fill=lightorange,
+      rounded corners=4pt,
+      minimum width=0.9\textwidth,
+      minimum height=4.2cm,
+      align=center,
+      text width=0.82\textwidth
+    ]{\Large #1\\[0.8em]\normalsize #2};
+  \end{tikzpicture}
+  \caption{#1}
+  \end{figure}
+}
+
+\newcommand{\manualimage}[3]{
+  \begin{figure}[H]
+  \centering
+  \includegraphics[width=0.94\textwidth,height=0.72\textheight,keepaspectratio]{#2}
+  \caption{#1}
+  \vspace{-0.2em}
+  {\small\color{linegray}#3}
+  \end{figure}
+}
+
+\begin{document}
+
+\begin{titlepage}
+  \centering
+  \vspace*{1.2cm}
+  {\fontsize{34pt}{42pt}\selectfont\bfseries\color{mainorange} 系统使用手册\par}
+  \vspace{0.9cm}
+  {\parbox{0.92\textwidth}{\centering\fontsize{22pt}{30pt}\selectfont\bfseries \ProjectName}\par}
+  \vspace{1.5cm}
+
+  \begin{tikzpicture}
+    \node[
+      fill=lightorange,
+      draw=mainorange!35,
+      rounded corners=3pt,
+      inner xsep=1.1cm,
+      inner ysep=0.8cm,
+      text width=0.82\textwidth,
+      align=left
+    ]{
+      \Large
+      \textbf{文档版本：} \DocVersion\\[1.1em]
+      \textbf{编制日期：} \DocDate\\[1.1em]
+      \textbf{项目名称：} \ProjectName\\[1.1em]
+      \textbf{课程名称：} \CourseName\\[1.1em]
+      \textbf{小组名称：} \GroupName\\[1.1em]
+      \textbf{指导教师：} \TeacherName\\[1.1em]
+      \textbf{适用对象：} 普通用户、管理员、部署人员和课程验收人员
+    };
+  \end{tikzpicture}
+
+  \vfill
+  {\large Ciallo 项目组\par}
+  \vspace{0.4cm}
+  {\large 2026 年 7 月\par}
+\end{titlepage}
+
+\tableofcontents
+\newpage
+
+\section{系统简介}
+
+\ProjectName 是一个基于 Hexo、Spring Boot、MySQL 和 DeepSeek 的多用户智能博客系统。系统面向课程实训场景，既保留 Hexo 静态主题的展示效果，又通过后端接口实现用户、文章、评论、通知、关注、私信、相册和 AI 辅助等动态功能。
+
+系统主要支持以下能力：
+
+\begin{itemize}
+  \item 用户注册、登录、唯一用户名校验和角色权限控制。
+  \item 游客浏览公开内容，游客只能查看公开页面，不能执行写入或互动操作。
+  \item 文章草稿、发布、编辑、删除、附件、目录、分类、标签和归档。
+  \item 点赞、评论、回复、评论点赞和互动通知。
+  \item 用户搜索、文章搜索、资料卡、关注、粉丝和互关。
+  \item 私信功能，非互关最多发送 3 条，互关后不限制。
+  \item 每个账号独立的 8 张个人相册，可上传、修改和删除。
+  \item AI 生成大纲、摘要、标签、分类和博客问答。
+  \item AI 内容初审与管理员人工复核。
+  \item 管理员用户、文章、评论、分类、标签和 AI 日志管理。
+\end{itemize}
+
+\section{运行环境说明}
+
+\subsection{推荐环境}
+
+\begin{longtable}{p{4cm}p{9.5cm}}
+\caption{系统运行环境}\\
+\toprule
+\rowcolor{tablehead}\textbf{软件} & \textbf{推荐版本或说明}\\
+\midrule
+\endfirsthead
+\toprule
+\rowcolor{tablehead}\textbf{软件} & \textbf{推荐版本或说明}\\
+\midrule
+\endhead
+操作系统 & Windows 10/11\\
+浏览器 & Chrome 或 Edge 最新版\\
+Node.js & 18 或更高版本\\
+Java & JDK 17；源码编译目标兼容 Java 8\\
+Maven & 3.8 或更高版本\\
+MySQL & MySQL 8\\
+数据库工具 & Navicat、MySQL Workbench 或 MySQL 命令行\\
+\bottomrule
+\end{longtable}
+
+\subsection{项目端口}
+
+\begin{longtable}{p{4cm}p{5cm}p{5cm}}
+\caption{项目默认端口}\\
+\toprule
+\rowcolor{tablehead}\textbf{服务} & \textbf{端口} & \textbf{说明}\\
+\midrule
+\endfirsthead
+\toprule
+\rowcolor{tablehead}\textbf{服务} & \textbf{端口} & \textbf{说明}\\
+\midrule
+\endhead
+前端页面 & 4000 & Hexo 生成后的站点访问端口\\
+后端接口 & 8080 & Spring Boot REST API 端口\\
+数据库 & 3306 & MySQL 默认端口\\
+\bottomrule
+\end{longtable}
+
+\subsection{数据库初始化}
+
+\begin{enumerate}
+  \item 启动 MySQL 服务。
+  \item 打开 Navicat、MySQL Workbench 或 MySQL 命令行。
+  \item 执行项目数据库脚本。
+\end{enumerate}
+
+\begin{codeblock}
+blog-system/database/schema.sql
+\end{codeblock}
+
+也可以执行 Navicat 版本的数据集脚本：
+
+\begin{codeblock}
+blog-system/database/mydataset_navicat.sql
+\end{codeblock}
+
+脚本会创建 \code{mydataset} 数据库、业务表、默认分类标签、默认文章和测试账号。若已有旧数据，建议在执行脚本前备份数据库。
+
+\subsection{环境变量配置}
+
+在项目根目录创建 \code{.env.local}，填写本机数据库账号和 DeepSeek 配置：
+
+\begin{codeblock}
+MYSQL_USER=root
+MYSQL_PASSWORD=你的MySQL密码
+DEEPSEEK_API_KEY=你的DeepSeek API Key
+DEEPSEEK_MODEL=deepseek-chat
+\end{codeblock}
+
+\code{.env.local} 包含数据库密码和 API Key，不应提交到 Git 仓库，也不应在截图或汇报材料中展示完整内容。
+
+\subsection{启动与停止系统}
+
+首次运行时，在项目根目录执行依赖安装：
+
+\begin{codeblock}
+npm install
+npm --prefix demo-site install
+\end{codeblock}
+
+启动系统：
+
+\begin{codeblock}
+npm run web
+\end{codeblock}
+
+也可以使用项目提供的 PowerShell 脚本：
+
+\begin{codeblock}
+powershell -NoProfile -ExecutionPolicy Bypass -File .\start-web.ps1
+\end{codeblock}
+
+启动成功后，在浏览器访问：
+
+\begin{codeblock}
+http://127.0.0.1:4000/login.html
+\end{codeblock}
+
+停止系统：
+
+\begin{codeblock}
+npm run web:stop
+\end{codeblock}
+
+\section{登录说明}
+
+\subsection{游客浏览}
+
+系统登录页提供“游客浏览公开内容”入口。游客不需要输入账号密码，点击该按钮后进入公开博客浏览模式。
+
+游客可以执行：
+
+\begin{itemize}
+  \item 浏览已公开文章列表和文章详情。
+  \item 查看公开评论、分类、标签和归档。
+  \item 搜索公开文章和用户名称。
+  \item 点击作者或用户名进入资料卡。
+  \item 查看用户资料卡中的脱敏邮箱、公开文章和个人相册。
+\end{itemize}
+
+游客不能执行：
+
+\begin{itemize}
+  \item 发布、编辑、删除文章或保存个人草稿。
+  \item 点赞文章、发表评论、回复评论或点赞评论。
+  \item 关注、取关、查看个人粉丝/关注列表或发送私信。
+  \item 上传、修改或删除相册图片。
+  \item 查看互动通知或使用 AI 大纲、摘要、标签、分类和博客问答。
+\end{itemize}
+
+如果游客点击需要登录的功能，系统会提示先登录或引导回登录页面。
+
+\subsection{用户登录}
+
+\begin{enumerate}
+  \item 打开 \code{/login.html}。
+  \item 输入用户名和密码。
+  \item 点击“登录”按钮。
+  \item 普通用户登录后进入用户工作台。
+  \item 管理员登录后进入管理后台。
+\end{enumerate}
+
+\subsection{用户注册}
+
+\begin{enumerate}
+  \item 在登录页面找到注册区域。
+  \item 输入唯一用户名、邮箱和密码。
+  \item 点击“注册”按钮。
+  \item 注册成功后，使用新账号登录系统。
+\end{enumerate}
+
+注册注意事项：
+
+\begin{itemize}
+  \item 用户名只能使用一次，系统会阻止重复用户名。
+  \item 邮箱需要符合基本邮箱格式。
+  \item 新账号会自动获得 8 张默认相册图片。
+  \item 普通用户不能直接获得管理员权限。
+\end{itemize}
+
+\subsection{登录失效说明}
+
+课程演示版本的登录令牌保存在后端内存中。如果后端服务重启，原令牌会失效，需要重新登录。这属于当前版本的正常现象。
+
+\section{普通用户功能使用说明}
+
+\subsection{用户工作台}
+
+普通用户登录后进入 \code{/blog.html}。工作台集中提供内容浏览、文章管理、搜索、关注、通知和 AI 辅助入口。
+
+工作台主要包含：
+
+\begin{itemize}
+  \item 当前用户信息、粉丝数和关注数。
+  \item 用户与文章搜索条。
+  \item 已公开文章流。
+  \item 分类、标签和归档入口。
+  \item 我的文章管理区。
+  \item 文章发布或编辑区。
+  \item AI 写作辅助区。
+\end{itemize}
+
+\subsection{搜索用户和文章}
+
+\begin{enumerate}
+  \item 在“搜索用户与文章”输入框输入关键词。
+  \item 点击“搜索”。
+  \item 用户结果按用户名或昵称匹配。
+  \item 文章结果按公开文章标题匹配。
+  \item 点击用户名进入资料卡。
+  \item 点击文章标题进入文章详情。
+\end{enumerate}
+
+通知模块、文章板块、评论区、粉丝列表和关注列表中出现的用户名也可以点击进入资料卡。
+
+\subsection{查看资料卡}
+
+资料卡展示目标用户的公开资料和社交入口，主要包括：
+
+\begin{itemize}
+  \item 用户名和昵称。
+  \item 权限化邮箱：查看自己资料卡时显示完整邮箱；查看他人资料卡时显示脱敏邮箱；管理员查看任意资料卡时显示完整邮箱。
+  \item 粉丝数和关注数。
+  \item 当前关注状态：未关注、已关注或已互关。
+  \item 个人相册。
+  \item 已公开文章。
+\end{itemize}
+
+用户可以在资料卡中关注、取关或发起私信。
+
+\subsection{关注、粉丝与互关}
+
+\begin{enumerate}
+  \item 点击用户旁的“关注”按钮。
+  \item 关注成功后按钮显示“已关注”。
+  \item 如果对方也关注当前用户，按钮显示“已互关”。
+  \item 工作台顶部的粉丝数和关注数可以点击。
+  \item 点击后显示粉丝列表或关注列表。
+  \item 列表中的用户名可以继续进入对应资料卡。
+\end{enumerate}
+
+当关注列表未打开时，右下角索引导航不显示该列表项；打开关注列表后，索引导航才显示对应入口。
+
+\subsection{发布文章}
+
+\begin{enumerate}
+  \item 进入工作台“发布或编辑文章”区域。
+  \item 输入文章标题、摘要和正文。
+  \item 选择已有分类，或填写自定义分类。
+  \item 选择或填写标签。
+  \item 根据需要上传附件。
+  \item 选择“保存到本地草稿”后点击保存文章，或选择“发布（AI 初审）”提交服务器。
+\end{enumerate}
+
+文章发布结果：
+
+\begin{itemize}
+  \item 正常内容：AI 初审通过后直接公开。
+  \item 风险内容：进入管理员审核，不立即公开。
+  \item 本地草稿：按当前账号保存在当前浏览器中，刷新或重新进入工作台会自动恢复。
+  \item 正式发布成功后，系统会自动清除对应本地草稿副本。
+\end{itemize}
+
+\subsection{使用文章附件}
+
+\begin{enumerate}
+  \item 在编辑区域选择附件。
+  \item 支持图片、PPT、PDF、Word 等常用文件。
+  \item 单个附件不能超过页面提示的大小限制。
+  \item 发布后附件显示在文章详情末尾。
+  \item 读者可以预览图片或下载附件。
+\end{enumerate}
+
+\subsection{编辑和删除文章}
+
+编辑文章：
+
+\begin{enumerate}
+  \item 在“我的文章”找到目标文章。
+  \item 点击“编辑”。
+  \item 修改标题、摘要、正文、分类、标签或附件。
+  \item 保存后，非草稿内容会再次经过 AI 初审。
+\end{enumerate}
+
+删除文章：
+
+\begin{enumerate}
+  \item 点击目标文章的“删除”。
+  \item 确认删除。
+  \item 系统同步删除该文章的评论、点赞、评论点赞、附件、标签关联和原通知。
+  \item 系统只向受影响用户、管理员和文章作者发送删除通知。
+\end{enumerate}
+
+\subsection{查看文章与目录}
+
+\begin{enumerate}
+  \item 点击文章的“查看全文”。
+  \item 右侧文章目录会识别 Markdown 标题、HTML 标题、中文章节标题、数字标题和独立加粗标题。
+  \item 没有明确标题但存在多个段落时，系统根据段落摘要生成目录。
+  \item 点击目录项可以跳转到正文对应位置。
+\end{enumerate}
+
+\subsection{点赞、评论和回复}
+
+文章点赞：
+
+\begin{enumerate}
+  \item 点击文章卡片或详情页的“点赞”。
+  \item 再次操作可取消点赞。
+  \item 文章作者收到带点赞者用户名的通知。
+\end{enumerate}
+
+评论：
+
+\begin{enumerate}
+  \item 在公开文章下输入评论。
+  \item 正常评论直接公开。
+  \item 风险评论进入管理员审核。
+  \item 评论公开后，文章作者收到通知。
+\end{enumerate}
+
+回复与评论点赞：
+
+\begin{enumerate}
+  \item 点击已公开评论旁的“回复”，输入回复内容并提交。
+  \item 回复公开后，被回复用户收到通知。
+  \item 点击评论旁的“点赞”，评论作者收到带点赞者用户名的通知。
+\end{enumerate}
+
+\subsection{私信}
+
+\begin{enumerate}
+  \item 从用户资料卡、搜索结果、粉丝列表或关注列表点击“私信”。
+  \item 输入消息并发送。
+  \item 非互关用户最多向同一用户发送 3 条。
+  \item 双方互关后发送条数不限。
+  \item 私信直接发送，不经过 AI 或管理员审核。
+  \item 对方会收到私信通知。
+\end{enumerate}
+
+\subsection{相册}
+
+从侧边栏进入 \code{/gallery.html}。登录后，页面显示当前账号的个人相册。所有账号默认拥有 8 张相册图片，用户可以删除、修改或上传新图片，但每个账号最多保留 8 张。
+
+上传新图片：
+
+\begin{enumerate}
+  \item 如果相册已有 8 张，请先删除一张。
+  \item 输入图片标题和说明。
+  \item 选择 JPG、PNG、WebP 或 GIF 图片。
+  \item 确认预览后点击“上传图片”。
+\end{enumerate}
+
+修改图片：
+
+\begin{enumerate}
+  \item 点击图片下方“修改”。
+  \item 修改标题或说明。
+  \item 如需替换图片，重新选择文件。
+  \item 点击“保存修改”。
+\end{enumerate}
+
+删除图片：
+
+\begin{enumerate}
+  \item 点击“删除”。
+  \item 确认操作。
+  \item 删除后相册数量减少，可以上传新图片。
+\end{enumerate}
+
+\subsection{动态与通知}
+
+\begin{enumerate}
+  \item 侧边栏“动态”旁有红点时表示存在未读消息。
+  \item 进入动态页面查看通知。
+  \item 通知中的用户名可以点击进入发送者资料卡。
+  \item 点击某条通知的“查看”后，该条消息变为已读。
+  \item 点击“全部已读”可清除所有未读状态。
+\end{enumerate}
+
+通知类型包括：
+
+\begin{itemize}
+  \item 文章点赞。
+  \item 公开评论。
+  \item 评论回复。
+  \item 评论点赞。
+  \item 新关注者。
+  \item 关注用户发布新文章。
+  \item 私信。
+  \item 内容驳回。
+  \item 文章删除影响通知。
+\end{itemize}
+
+审核通过不会发送多余的“通过”通知；只有评论公开后，系统才向相关用户发送评论通知。
+
+\section{管理员功能使用说明}
+
+管理员登录后进入 \code{/admin.html}。管理员拥有系统维护和内容复核权限，但仍应遵守最小权限原则，避免误删业务数据。
+
+\subsection{仪表盘统计}
+
+管理员后台首页可查看：
+
+\begin{itemize}
+  \item 用户数量。
+  \item 文章数量。
+  \item 评论数量。
+  \item 分类和标签数量。
+  \item 总阅读量。
+  \item AI 调用数量。
+\end{itemize}
+
+\subsection{用户管理}
+
+管理员可以执行：
+
+\begin{itemize}
+  \item 将普通用户设为管理员。
+  \item 将管理员调整为普通用户。
+  \item 封禁或解封用户。
+  \item 删除没有遗留文章和评论的用户。
+\end{itemize}
+
+限制说明：
+
+\begin{itemize}
+  \item 不能封禁当前登录管理员。
+  \item 不能删除当前登录管理员。
+  \item 用户仍有文章或评论时，应先处理相关内容。
+\end{itemize}
+
+\subsection{文章审核}
+
+\begin{enumerate}
+  \item 在文章管理区查看待审核文章。
+  \item 阅读标题、正文和 AI 初审结果。
+  \item 选择“通过上架”或“驳回”。
+  \item 通过后文章公开，并通知关注者。
+  \item 驳回后通知文章作者。
+\end{enumerate}
+
+\subsection{评论审核}
+
+\begin{enumerate}
+  \item 在评论管理区查看待审核评论。
+  \item 查看评论内容和 AI 初审结果。
+  \item 选择通过、驳回或删除。
+  \item 通过后评论公开，并通知文章作者或被回复者。
+  \item 驳回后通知评论者。
+\end{enumerate}
+
+\subsection{分类和标签管理}
+
+\begin{itemize}
+  \item 新增分类和标签。
+  \item 修改分类或标签名称。
+  \item 修改分类说明。
+  \item 删除未被文章使用的分类或标签。
+  \item 分类或标签已被文章使用时，系统会阻止删除。
+\end{itemize}
+
+\subsection{AI 日志管理}
+
+AI 日志显示：
+
+\begin{itemize}
+  \item 功能名称。
+  \item 用户输入或提示词。
+  \item 模型处理摘要。
+  \item 返回结果。
+  \item 创建时间。
+\end{itemize}
+
+管理员可按功能和关键词筛选并分页查看 AI 日志。测试结束后，可清理测试过程中产生的冗余 AI 使用记录。
+
+\subsection{管理员相册}
+
+管理员也拥有独立的 8 张个人相册，可以管理自己的图片。管理员查看任意用户资料卡时可以看到完整邮箱，但不能越权修改其他用户相册。
+
+\section{AI 功能使用说明}
+
+\subsection{AI 生成大纲}
+
+\begin{enumerate}
+  \item 在文章编辑区填写标题和部分正文。
+  \item 点击“AI 生成大纲”。
+  \item 等待 DeepSeek 返回结果。
+  \item 将需要的大纲复制或整理到正文中。
+\end{enumerate}
+
+\subsection{AI 生成摘要}
+
+\begin{enumerate}
+  \item 填写文章正文。
+  \item 点击“AI 生成摘要”。
+  \item 系统生成适合首页展示的摘要。
+  \item 用户根据需要人工修改。
+\end{enumerate}
+
+\subsection{AI 推荐标签}
+
+\begin{enumerate}
+  \item 填写标题和正文。
+  \item 点击“AI 推荐标签”。
+  \item 系统返回 3 到 6 个标签建议。
+  \item 用户可以继续增加、删除或修改标签。
+\end{enumerate}
+
+\subsection{AI 推荐分类}
+
+\begin{enumerate}
+  \item 点击“AI 推荐分类”。
+  \item 系统优先从已有分类中选择。
+  \item 如果已有分类不合适，会推荐新分类名称。
+  \item 用户确认后写入文章分类。
+\end{enumerate}
+
+\subsection{博客问答}
+
+\begin{enumerate}
+  \item 在文章详情或独立智能体页面输入问题。
+  \item 点击发送。
+  \item 系统根据已公开文章回答。
+  \item 返回结果中显示相关依据文章，避免重复或混乱的来源列表。
+\end{enumerate}
+
+\subsection{AI 内容初审}
+
+文章和评论提交后，系统先进行 AI 或本地规则筛选：
+
+\begin{itemize}
+  \item 正常内容直接公开。
+  \item 疑似广告、辱骂、低俗、诈骗或其他风险内容进入管理员审核。
+  \item 私信不参与 AI 和管理员审核，直接发送。
+  \item 审核通过本身不发送多余通知；评论公开后才向相关用户发送通知。
+\end{itemize}
+
+\subsection{AI 使用注意事项}
+
+\begin{itemize}
+  \item 必须登录后才能使用 AI 功能。
+  \item AI 返回内容仅作为辅助，发布前应人工检查。
+  \item API Key 无效、模型名错误、额度不足或网络异常时，页面会显示错误信息。
+  \item 内容初审用于分流，最终风险内容由管理员人工确认。
+\end{itemize}
+
+\section{常见问题}
+
+\subsection{页面打不开}
+
+请依次检查：
+
+\begin{enumerate}
+  \item MySQL 是否启动。
+  \item 后端 8080 端口是否启动。
+  \item 前端 4000 端口是否启动。
+  \item \code{.env.local} 中数据库账号密码是否正确。
+  \item \code{tmp/run-logs/} 中是否存在启动错误日志。
+\end{enumerate}
+
+\subsection{修改前端后页面没有变化}
+
+执行前端重新生成命令，然后刷新浏览器：
+
+\begin{codeblock}
+npm --prefix demo-site run generate
+\end{codeblock}
+
+必要时使用 \code{Ctrl + F5} 强制刷新。
+
+\subsection{后端重启后提示登录失效}
+
+当前令牌存储在内存中，后端重启后需要重新登录。
+
+\subsection{相册不显示上传按钮}
+
+\begin{itemize}
+  \item 确认已经登录。
+  \item 相册满 8 张时上传按钮会禁用，请先删除一张。
+  \item 刷新页面并确认 \code{/gallery.html} 已加载最新脚本。
+\end{itemize}
+
+\subsection{默认相册不显示}
+
+\begin{itemize}
+  \item 重新登录后刷新相册页面。
+  \item 检查 \code{/images/post/} 下的默认图片资源。
+  \item 检查数据库 \code{gallery\_photos} 和 \code{user\_gallery\_settings}。
+\end{itemize}
+
+\subsection{AI 调用失败}
+
+请检查：
+
+\begin{itemize}
+  \item \code{DEEPSEEK\_API\_KEY} 是否配置。
+  \item \code{DEEPSEEK\_MODEL} 是否有效。
+  \item 网络是否可以连接 DeepSeek。
+  \item API 账户是否有余额。
+  \item 后端 AI 日志中的错误信息。
+\end{itemize}
+
+\subsection{分类或标签无法删除}
+
+该分类或标签仍被文章使用。请先修改或删除引用它的文章。
+
+\subsection{用户无法删除}
+
+该用户仍有文章或评论。管理员需要先处理关联内容。
+
+\subsection{私信达到上限}
+
+非互关用户最多向同一用户发送 3 条。双方互相关注后即可继续发送。
+
+\subsection{文章目录只有“正文内容”}
+
+建议在正文中使用 Markdown 标题、中文章节标题或数字标题。当前系统也会在存在多个段落时自动生成段落摘要目录。
+
+\section{测试账号}
+
+\begin{longtable}{p{2.8cm}p{3.4cm}p{3.4cm}p{3.6cm}}
+\caption{系统测试账号}\\
+\toprule
+\rowcolor{tablehead}\textbf{角色} & \textbf{用户名} & \textbf{密码} & \textbf{说明}\\
+\midrule
+\endfirsthead
+\toprule
+\rowcolor{tablehead}\textbf{角色} & \textbf{用户名} & \textbf{密码} & \textbf{说明}\\
+\midrule
+\endhead
+管理员 & admin & 123456 & 可进入后台管理页面\\
+普通用户 & user & 123456 & 可体验普通用户功能\\
+\bottomrule
+\end{longtable}
+
+正式部署前应修改默认密码，并避免在公开演示环境中使用弱密码。
+
+\section{系统截图}
+
+本节调用项目根目录 \code{picture} 文件夹中的实际截图。图片用于说明系统关键页面和主要功能，正式提交前如需替换截图，只需保持文件名或同步修改对应 \code{\textbackslash includegraphics} 路径。
+
+\manualimage{登录页面}{../../picture/登录.png}{截图重点：登录输入框、系统标题和页面整体风格。}
+
+\manualimage{注册页面}{../../picture/注册.png}{截图重点：注册输入框、用户名唯一性提示和账号创建入口。}
+
+\manualimage{普通用户工作台}{../../picture/普通用户工作台.jpeg}{截图重点：用户信息、粉丝关注数、搜索区、文章流和侧边栏导航。}
+
+\manualimage{文章发布与 AI 写作辅助}{../../picture/文章发布与AI辅助.jpeg}{截图重点：标题、正文、分类标签、附件上传和 AI 辅助按钮。}
+
+\manualimage{文章详情与目录}{../../picture/文章详情与目录.jpeg}{截图重点：文章正文、多级目录、点赞和评论互动区域。}
+
+\manualimage{用户资料卡}{../../picture/用户资料卡.jpeg}{截图重点：资料展示、邮箱权限化显示、关注状态、相册和公开文章。}
+
+\manualimage{关注与粉丝列表}{../../picture/关注与粉丝列表.jpeg}{截图重点：关注用户、粉丝用户、互关状态和资料卡入口。}
+
+\manualimage{私信会话}{../../picture/私信会话.jpeg}{截图重点：消息气泡、发送入口、互关状态和非互关发送限制。}
+
+\manualimage{个人相册管理}{../../picture/个人相册管理.jpeg}{截图重点：默认相册图片、上传入口、修改和删除按钮。}
+
+\manualimage{动态与互动通知}{../../picture/动态与互动通知.jpeg}{截图重点：未读通知、用户名链接、查看入口和已读状态。}
+
+\manualimage{管理员后台仪表盘}{../../picture/管理员后台仪表盘.jpeg}{截图重点：统计卡片、后台功能分区和管理员操作入口。}
+
+\manualimage{文章审核页面}{../../picture/文章评论与审核_1.jpg}{截图重点：待审核文章、AI 初审结果、通过和驳回按钮。}
+
+\manualimage{评论审核页面}{../../picture/文章评论与审核_2.jpeg}{截图重点：待审核评论、评论内容、审核状态和处理按钮。}
+
+\manualimage{AI 使用日志}{../../picture/AI使用日志.jpeg}{截图重点：AI 功能名称、提示词、处理结果、时间和分页查看。}
+
+\section{测试与验收}
+
+执行全功能测试：
+
+\begin{codeblock}
+powershell -NoProfile -ExecutionPolicy Bypass -File .\blog-system\tests\run-full-system-test.ps1
+\end{codeblock}
+
+最近一次项目测试结果如下：
+
+\begin{longtable}{p{6cm}p{7cm}}
+\caption{测试结果摘要}\\
+\toprule
+\rowcolor{tablehead}\textbf{测试项} & \textbf{结果}\\
+\midrule
+\endfirsthead
+\toprule
+\rowcolor{tablehead}\textbf{测试项} & \textbf{结果}\\
+\midrule
+\endhead
+前端主要页面 & 13 / 13 可访问\\
+后端 Maven 打包 & 通过\\
+端到端业务检查 & 50 / 50 通过\\
+临时测试数据残留 & 0\\
+\bottomrule
+\end{longtable}
+
+验收时建议按“登录注册、文章发布、评论互动、关注私信、相册管理、AI 功能、管理员审核、通知已读、文章删除级联清理”的顺序进行演示。
+
+\end{document}

@@ -2,6 +2,7 @@
 
 *.log
 *.tmp
+desktop.ini
 
 node_modules/
 .idea/
@@ -17,3 +18,13 @@ blog-system/backend/.m2-repository/
 tmp/
 .impeccable/
 .env.local
+
+# LaTeX build cache
+*.aux
+*.out
+*.toc
+*.synctex.gz
+blog-system/docs/.latex_check/
+
+# Personal export, not part of the runnable project
+blog-system/docs/对话记录导出.md

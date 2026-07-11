@@ -1,0 +1,762 @@
+\documentclass[UTF8,a4paper,12pt]{ctexart}
+
+\usepackage{geometry}
+\usepackage[table]{xcolor}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage{tabularx}
+\usepackage{enumitem}
+\usepackage{tikz}
+\usepackage{float}
+\usepackage{fancyhdr}
+\usepackage{hyperref}
+\usepackage{titlesec}
+\usepackage{caption}
+
+\geometry{left=2.6cm,right=2.6cm,top=2.5cm,bottom=2.5cm}
+\IfFontExistsTF{Microsoft YaHei}{
+  \setmainfont{Microsoft YaHei}
+  \setsansfont{Microsoft YaHei}
+  \setCJKmainfont{Microsoft YaHei}
+  \setCJKsansfont{Microsoft YaHei}
+}{}
+\IfFontExistsTF{Consolas}{\setmonofont{Consolas}}{}
+\setlength{\headheight}{15pt}
+\usetikzlibrary{arrows.meta,positioning,shapes.geometric,shapes.misc,calc}
+
+\definecolor{mainblue}{HTML}{C97932}
+\definecolor{lightblue}{HTML}{FFF3E3}
+\definecolor{linegray}{HTML}{B59A7A}
+\definecolor{tablehead}{HTML}{FFE4C4}
+
+\hypersetup{
+  colorlinks=true,
+  linkcolor=mainblue,
+  urlcolor=mainblue,
+  citecolor=mainblue,
+  pdfauthor={Ciallo 项目组},
+  pdftitle={Ciallo～(∠・ω< )⌒☆ 多用户智能博客系统需求分析文档}
+}
+
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{Ciallo～(∠・ω< )⌒☆ 多用户智能博客系统}
+\fancyhead[R]{需求分析文档}
+\fancyfoot[C]{\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+
+\titleformat{\section}{\Large\bfseries\color{mainblue}}{\thesection}{0.8em}{}
+\titleformat{\subsection}{\large\bfseries\color{mainblue}}{\thesubsection}{0.8em}{}
+\titleformat{\subsubsection}{\normalsize\bfseries}{\thesubsubsection}{0.8em}{}
+
+\setlist[itemize]{leftmargin=2em,itemsep=0.2em,topsep=0.3em}
+\setlist[enumerate]{leftmargin=2em,itemsep=0.2em,topsep=0.3em}
+\renewcommand{\arraystretch}{1.35}
+
+\newcommand{\ProjectName}{Ciallo～(∠・ω< )⌒☆ 多用户智能博客系统}
+\newcommand{\CourseName}{Web 高级程序设计实训}
+\newcommand{\DocVersion}{V1.0}
+\newcommand{\DocDate}{2026 年 7 月 9 日}
+\newcommand{\GroupName}{1 组}
+\newcommand{\TeacherName}{李玉莹}
+
+\begin{document}
+
+\begin{titlepage}
+  \centering
+  \vspace*{1.2cm}
+  {\fontsize{34pt}{42pt}\selectfont\bfseries\color{mainblue} 需求分析文档\par}
+  \vspace{0.9cm}
+  {\parbox{0.92\textwidth}{\centering\fontsize{22pt}{30pt}\selectfont\bfseries \ProjectName}\par}
+  \vspace{1.5cm}
+
+  \begin{tikzpicture}
+    \node[
+      fill=lightblue,
+      draw=mainblue!35,
+      rounded corners=3pt,
+      inner xsep=1.1cm,
+      inner ysep=0.8cm,
+      text width=0.82\textwidth,
+      align=left
+    ]{
+      \Large
+      \textbf{文档版本：} \DocVersion\\[1.1em]
+      \textbf{编制日期：} \DocDate\\[1.1em]
+      \textbf{项目名称：} \ProjectName\\[1.1em]
+      \textbf{课程名称：} \CourseName\\[1.1em]
+      \textbf{小组名称：} \GroupName\\[1.1em]
+      \textbf{指导教师：} \TeacherName
+    };
+  \end{tikzpicture}
+
+  \vfill
+  {\large Ciallo 项目组\par}
+  \vspace{0.4cm}
+  {\large 2026 年 7 月\par}
+\end{titlepage}
+
+\tableofcontents
+\newpage
+
+\section{项目背景}
+
+随着个人内容创作、技术分享和线上社交的发展，传统静态博客通常只具备单向发布能力，难以满足多用户协作、互动通知、内容安全审核和智能写作等需求。本项目在 Hexo 动漫主题基础上，建设一个前后端分离的多用户智能博客系统。
+
+系统以普通用户和管理员为核心角色。普通用户可以注册登录、发布文章、管理文章、评论回复、点赞、关注、私信、维护个人相册，并使用 AI 完成摘要、大纲、标签、分类和博客问答。管理员负责用户、文章、评论、分类、标签及 AI 日志管理。
+
+为兼顾发布效率和内容安全，文章与评论采用“AI 先审、人工兜底”的流程：正常内容由系统直接公开，疑似广告、辱骂、低俗、诈骗等内容转交管理员判断。这样既减少管理员重复审核工作，又避免风险内容直接公开。
+
+\section{建设目标}
+
+\begin{enumerate}
+  \item 建设一个可运行、可演示、可扩展的多用户博客平台。
+  \item 实现用户、文章、评论、社交、相册、私信和通知等完整业务闭环。
+  \item 使用 MySQL 持久化正式业务数据，并使用浏览器本地存储保存未发布草稿。
+  \item 接入 DeepSeek 兼容接口，提高写作效率和内容检索能力。
+  \item 通过本地规则与管理员复核保障内容安全。
+  \item 提供清晰的角色权限、隐私保护和数据级联删除机制。
+\end{enumerate}
+
+\section{用户角色分析}
+
+\subsection{游客}
+
+游客是尚未登录系统的访问者。
+
+\begin{itemize}
+  \item 可浏览站点公开页面和主题内容。
+  \item 可进入登录、注册页面。
+  \item 不允许调用 AI、发布文章、评论、点赞、关注、私信或管理相册。
+\end{itemize}
+
+\subsection{普通用户}
+
+普通用户是系统主要内容生产者和互动参与者。
+
+\begin{itemize}
+  \item 注册、登录和查看个人资料。
+  \item 发布、编辑、删除自己的文章，保存本地草稿。
+  \item 使用分类、标签和附件。
+  \item 浏览公开文章、点赞、评论、回复和评论点赞。
+  \item 搜索用户和文章。
+  \item 关注、取关其他用户，查看粉丝和关注列表。
+  \item 与其他用户私信。
+  \item 管理自己的 8 张个人相册图片。
+  \item 使用 AI 写作辅助和博客问答。
+  \item 查看互动通知并标记已读。
+\end{itemize}
+
+普通用户不能修改或删除其他用户的文章、评论和相册。非互关用户最多向同一用户发送 3 条私信；风险文章和风险评论需要管理员复核。
+
+\subsection{管理员}
+
+管理员负责平台治理，同时拥有一个可独立维护的个人账号。
+
+\begin{itemize}
+  \item 查看系统统计数据。
+  \item 查看用户列表，修改角色、封禁、解封和删除用户。
+  \item 审核文章和评论。
+  \item 删除不适当评论。
+  \item 管理分类与标签。
+  \item 查看 AI 使用日志。
+  \item 使用普通用户共有的搜索、资料卡和相册功能。
+\end{itemize}
+
+管理员不能封禁或删除当前登录的管理员账号，不能越权修改其他用户的个人相册。删除已有文章或评论的用户前，需要先处理关联内容。
+
+\section{功能需求}
+
+\subsection{注册与登录}
+
+\begin{longtable}{>{\centering\arraybackslash}p{2.1cm}p{3.3cm}p{8.6cm}}
+\caption{注册与登录功能需求}\\
+\toprule
+\rowcolor{tablehead}\textbf{编号} & \textbf{功能} & \textbf{需求说明}\\
+\midrule
+\endfirsthead
+\toprule
+\rowcolor{tablehead}\textbf{编号} & \textbf{功能} & \textbf{需求说明}\\
+\midrule
+\endhead
+FR-01 & 用户注册 & 用户输入唯一用户名、邮箱和密码创建账号。\\
+FR-02 & 用户名唯一 & 相同用户名不得重复注册，数据库和业务层双重校验。\\
+FR-03 & 用户登录 & 根据用户名和密码验证身份。\\
+FR-04 & 角色跳转 & 普通用户进入工作台，管理员进入后台。\\
+FR-05 & 登录状态 & 登录令牌用于后续接口鉴权。\\
+FR-06 & 封禁限制 & 被封禁用户不能登录或继续使用受保护功能。\\
+\bottomrule
+\end{longtable}
+
+\subsection{用户资料与搜索}
+
+\begin{longtable}{>{\centering\arraybackslash}p{2.1cm}p{3.3cm}p{8.6cm}}
+\caption{用户资料与搜索功能需求}\\
+\toprule
+\rowcolor{tablehead}\textbf{编号} & \textbf{功能} & \textbf{需求说明}\\
+\midrule
+\endfirsthead
+\toprule
+\rowcolor{tablehead}\textbf{编号} & \textbf{功能} & \textbf{需求说明}\\
+\midrule
+\endhead
+FR-07 & 用户资料卡 & 展示用户名、昵称、权限化邮箱、粉丝数、关注数、相册和公开文章。\\
+FR-08 & 隐私保护 & 本人和管理员可查看完整邮箱，其他普通用户仅显示脱敏邮箱；任何角色均不能查看密码。\\
+FR-09 & 全局搜索 & 按用户名、昵称或文章标题搜索。\\
+FR-10 & 用户跳转 & 文章作者、评论者、通知发送者用户名可进入资料卡。\\
+\bottomrule
+\end{longtable}
+
+\subsection{文章管理}
+
+\begin{longtable}{>{\centering\arraybackslash}p{2.1cm}p{3.3cm}p{8.6cm}}
+\caption{文章管理功能需求}\\
+\toprule
+\rowcolor{tablehead}\textbf{编号} & \textbf{功能} & \textbf{需求说明}\\
+\midrule
+\endfirsthead
+\toprule
+\rowcolor{tablehead}\textbf{编号} & \textbf{功能} & \textbf{需求说明}\\
+\midrule
+\endhead
+FR-11 & 保存草稿 & 草稿按账号保存到当前浏览器本地存储，刷新或重新进入工作台后自动恢复，正式发布后清除本地副本。\\
+FR-12 & 发布文章 & 填写标题、摘要、正文、分类、标签和附件。\\
+FR-13 & 编辑文章 & 作者或管理员按权限编辑文章。\\
+FR-14 & 删除文章 & 作者或管理员删除文章。\\
+FR-15 & 级联删除 & 删除文章时同步删除评论、点赞、评论点赞、附件、标签关联和原关联通知。\\
+FR-16 & 阅读量 & 查看文章详情时增加阅读量。\\
+FR-17 & 文章目录 & 根据 Markdown、HTML、中文章节、数字层级或段落生成目录。\\
+FR-18 & 附件 & 支持图片、PPT、PDF、Word 等附件保存和下载。\\
+FR-19 & 文章检索 & 支持关键词、分类、标签和归档筛选。\\
+\bottomrule
+\end{longtable}
+
+\subsection{评论与点赞}
+
+\begin{longtable}{>{\centering\arraybackslash}p{2.1cm}p{3.3cm}p{8.6cm}}
+\caption{评论与点赞功能需求}\\
+\toprule
+\rowcolor{tablehead}\textbf{编号} & \textbf{功能} & \textbf{需求说明}\\
+\midrule
+\endfirsthead
+\toprule
+\rowcolor{tablehead}\textbf{编号} & \textbf{功能} & \textbf{需求说明}\\
+\midrule
+\endhead
+FR-20 & 文章点赞 & 同一用户对同一文章只能点赞一次，可取消。\\
+FR-21 & 发表评论 & 登录用户可对已公开文章评论。\\
+FR-22 & 评论回复 & 只能回复同一文章下已公开评论。\\
+FR-23 & 评论点赞 & 同一用户对同一评论只能点赞一次，可取消。\\
+FR-24 & 公开后通知 & 评论公开后才通知文章作者或被回复用户。\\
+FR-25 & 用户名展示 & 点赞和评论通知显示发送者用户名并可点击。\\
+\bottomrule
+\end{longtable}
+
+\subsection{关注与私信}
+
+\begin{longtable}{>{\centering\arraybackslash}p{2.1cm}p{3.3cm}p{8.6cm}}
+\caption{关注与私信功能需求}\\
+\toprule
+\rowcolor{tablehead}\textbf{编号} & \textbf{功能} & \textbf{需求说明}\\
+\midrule
+\endfirsthead
+\toprule
+\rowcolor{tablehead}\textbf{编号} & \textbf{功能} & \textbf{需求说明}\\
+\midrule
+\endhead
+FR-26 & 关注/取关 & 用户可关注或取消关注其他正常用户。\\
+FR-27 & 互关状态 & 双方互相关注时显示“已互关”。\\
+FR-28 & 社交列表 & 粉丝数和关注数可点击，并显示对应用户列表。\\
+FR-29 & 新文章通知 & 被关注用户发布新文章时通知关注者。\\
+FR-30 & 私信 & 私信直接发送，不参与 AI 或管理员审核。\\
+FR-31 & 私信限制 & 非互关用户最多发送 3 条，互关后不限量。\\
+FR-32 & 私信通知 & 收件人收到私信通知，可进入会话。\\
+\bottomrule
+\end{longtable}
+
+\subsection{相册}
+
+\begin{longtable}{>{\centering\arraybackslash}p{2.1cm}p{3.3cm}p{8.6cm}}
+\caption{相册功能需求}\\
+\toprule
+\rowcolor{tablehead}\textbf{编号} & \textbf{功能} & \textbf{需求说明}\\
+\midrule
+\endfirsthead
+\toprule
+\rowcolor{tablehead}\textbf{编号} & \textbf{功能} & \textbf{需求说明}\\
+\midrule
+\endhead
+FR-33 & 默认相册 & 每个新账号初始化现有 8 张默认图片。\\
+FR-34 & 相册隔离 & 每个用户只能管理自己的相册。\\
+FR-35 & 上传图片 & 支持 JPG、PNG、WebP 和 GIF。\\
+FR-36 & 修改图片 & 可修改标题、说明或替换图片。\\
+FR-37 & 删除图片 & 用户可删除自己的图片。\\
+FR-38 & 数量限制 & 每个账号最多保留 8 张图片。\\
+FR-39 & 资料卡展示 & 资料卡显示目标用户当前相册。\\
+\bottomrule
+\end{longtable}
+
+\subsection{通知}
+
+\begin{longtable}{>{\centering\arraybackslash}p{2.1cm}p{3.3cm}p{8.6cm}}
+\caption{通知功能需求}\\
+\toprule
+\rowcolor{tablehead}\textbf{编号} & \textbf{功能} & \textbf{需求说明}\\
+\midrule
+\endfirsthead
+\toprule
+\rowcolor{tablehead}\textbf{编号} & \textbf{功能} & \textbf{需求说明}\\
+\midrule
+\endhead
+FR-40 & 动态红点 & 侧边栏“动态”附近显示未读提示。\\
+FR-41 & 通知类型 & 支持点赞、评论、回复、关注、新文章、私信、驳回和删除通知。\\
+FR-42 & 单条已读 & 点击某条通知后仅该条变为已读。\\
+FR-43 & 全部已读 & 用户可一次标记全部通知。\\
+FR-44 & 删除通知 & 文章删除后只通知受影响用户、管理员和文章作者。\\
+FR-45 & 减少冗余 & 文章或评论审核通过不发送无意义的“通过”通知。\\
+\bottomrule
+\end{longtable}
+
+\subsection{管理员后台}
+
+\begin{longtable}{>{\centering\arraybackslash}p{2.1cm}p{3.3cm}p{8.6cm}}
+\caption{管理员后台功能需求}\\
+\toprule
+\rowcolor{tablehead}\textbf{编号} & \textbf{功能} & \textbf{需求说明}\\
+\midrule
+\endfirsthead
+\toprule
+\rowcolor{tablehead}\textbf{编号} & \textbf{功能} & \textbf{需求说明}\\
+\midrule
+\endhead
+FR-46 & 数据统计 & 展示用户、文章、评论、分类、标签、阅读量和 AI 调用量。\\
+FR-47 & 用户管理 & 修改角色、封禁、解封、删除用户。\\
+FR-48 & 内容审核 & 通过或驳回风险文章和评论。\\
+FR-49 & 分类管理 & 新增、修改和删除未使用分类。\\
+FR-50 & 标签管理 & 新增、修改和删除未使用标签。\\
+FR-51 & AI 日志 & 查看 AI 功能、提示词、处理摘要、结果和时间。\\
+\bottomrule
+\end{longtable}
+
+\section{非功能需求}
+
+\subsection{性能需求}
+
+\begin{itemize}
+  \item 普通列表和详情接口在本地环境下应快速响应。
+  \item 文章、评论和通知查询应使用索引字段。
+  \item 前端图片使用懒加载，减少初始页面资源压力。
+  \item 私信会话单次最多返回最近 200 条消息。
+\end{itemize}
+
+\subsection{安全需求}
+
+\begin{itemize}
+  \item 所有写操作必须进行登录和权限校验。
+  \item 管理接口仅管理员可访问。
+  \item AI 接口仅登录用户可调用。
+  \item 用户密码不得出现在接口响应中。
+  \item 用户邮箱按访问权限展示：本人及管理员查看完整邮箱，其他普通用户查看脱敏邮箱。
+  \item 前端动态内容进行 HTML 转义，降低脚本注入风险。
+  \item 用户名在业务层和数据库层保持唯一。
+\end{itemize}
+
+\subsection{可靠性需求}
+
+\begin{itemize}
+  \item 已发布内容等业务数据保存到 MySQL；未发布的本地草稿保存在当前浏览器并按账号隔离。
+  \item 文章删除使用事务完成级联清理。
+  \item 点赞、关注等关系使用联合主键避免重复。
+  \item 测试脚本执行结束后自动清理临时数据。
+\end{itemize}
+
+\subsection{易用性需求}
+
+\begin{itemize}
+  \item 页面提供明确的成功、失败和加载状态提示。
+  \item 用户名可点击进入资料卡。
+  \item 工作台提供搜索、筛选、分页和索引导航。
+  \item 相册明确显示当前数量和 8 张上限。
+  \item 文章详情提供目录快速定位。
+\end{itemize}
+
+\subsection{兼容性与可维护性需求}
+
+\begin{itemize}
+  \item 支持 Chrome、Edge 等现代浏览器。
+  \item 支持 Node.js 18+、MySQL 8、Maven 3.8+。
+  \item 后端源码兼容 Java 8，当前环境可使用 JDK 17 运行。
+  \item 后端采用 Controller、Service、Repository 分层。
+  \item 数据库脚本和运行时迁移逻辑保持同步。
+  \item 前端页面、样式和业务脚本分离。
+  \item README、测试脚本和业务代码同步更新。
+\end{itemize}
+
+\section{业务流程图}
+
+\subsection{用户发布文章流程}
+
+\begin{figure}[H]
+\centering
+\resizebox{\textwidth}{!}{%
+\begin{tikzpicture}[
+  node distance=1.1cm,
+  box/.style={rectangle, rounded corners, draw=mainblue, fill=lightblue, minimum width=3.5cm, minimum height=0.85cm, align=center},
+  decision/.style={diamond, aspect=2.1, draw=mainblue, fill=white, align=center, inner sep=1pt},
+  arrow/.style={-Latex, thick, draw=mainblue}
+]
+\node[box] (login) {用户登录};
+\node[box, below=of login] (edit) {填写文章\\选择草稿或发布};
+\node[decision, below=of edit] (choice) {保存\\还是发布};
+\node[box, left=2.8cm of choice] (draft) {保存到浏览器\\本地草稿};
+\node[box, below=of choice] (ai) {AI 本地风险初审};
+\node[decision, below=of ai] (risk) {是否风险};
+\node[box, left=2.8cm of risk] (publish) {直接公开};
+\node[box, right=2.8cm of risk] (pending) {待管理员审核};
+\node[decision, below=of pending] (admin) {管理员\\决定};
+\node[box, below=of admin] (reject) {驳回并通知作者};
+\node[box, left=2.8cm of admin] (pass) {审核通过公开};
+\node[box, below=of pass] (notify) {通知关注者};
+
+\draw[arrow] (login) -- (edit);
+\draw[arrow] (edit) -- (choice);
+\draw[arrow] (choice) -- node[above]{保存} (draft);
+\draw[arrow] (choice) -- node[right]{发布} (ai);
+\draw[arrow] (ai) -- (risk);
+\draw[arrow] (risk) -- node[above]{否} (publish);
+\draw[arrow] (risk) -- node[above]{是} (pending);
+\draw[arrow] (pending) -- (admin);
+\draw[arrow] (admin) -- node[above]{通过} (pass);
+\draw[arrow] (admin) -- node[right]{驳回} (reject);
+\draw[arrow] (publish) -- (notify);
+\draw[arrow] (pass) -- (notify);
+\end{tikzpicture}
+}
+\caption{用户发布文章业务流程}
+\end{figure}
+
+\subsection{评论发布流程}
+
+\begin{figure}[H]
+\centering
+\resizebox{\textwidth}{!}{%
+\begin{tikzpicture}[
+  node distance=1.05cm,
+  box/.style={rectangle, rounded corners, draw=mainblue, fill=lightblue, minimum width=3.4cm, minimum height=0.85cm, align=center},
+  decision/.style={diamond, aspect=2.1, draw=mainblue, fill=white, align=center, inner sep=1pt},
+  arrow/.style={-Latex, thick, draw=mainblue}
+]
+\node[box] (view) {用户查看公开文章};
+\node[box, below=of view] (submit) {提交评论或回复};
+\node[box, below=of submit] (ai) {AI 本地风险初审};
+\node[decision, below=of ai] (risk) {是否风险};
+\node[box, left=2.8cm of risk] (open) {直接公开};
+\node[box, right=2.8cm of risk] (review) {管理员审核};
+\node[decision, below=of review] (admin) {审核结果};
+\node[box, left=2.8cm of admin] (pass) {公开评论};
+\node[box, below=of admin] (reject) {驳回并通知评论者};
+\node[box, below=of pass] (notify) {通知文章作者\\或被回复用户};
+
+\draw[arrow] (view) -- (submit);
+\draw[arrow] (submit) -- (ai);
+\draw[arrow] (ai) -- (risk);
+\draw[arrow] (risk) -- node[above]{否} (open);
+\draw[arrow] (risk) -- node[above]{是} (review);
+\draw[arrow] (review) -- (admin);
+\draw[arrow] (admin) -- node[above]{通过} (pass);
+\draw[arrow] (admin) -- node[right]{驳回} (reject);
+\draw[arrow] (open) -- (notify);
+\draw[arrow] (pass) -- (notify);
+\end{tikzpicture}
+}
+\caption{评论发布业务流程}
+\end{figure}
+
+\subsection{社交与私信流程}
+
+\begin{figure}[H]
+\centering
+\resizebox{\textwidth}{!}{%
+\begin{tikzpicture}[
+  node distance=1cm,
+  box/.style={rectangle, rounded corners, draw=mainblue, fill=lightblue, minimum width=3.2cm, minimum height=0.85cm, align=center},
+  decision/.style={diamond, aspect=2.2, draw=mainblue, fill=white, align=center, inner sep=1pt},
+  arrow/.style={-Latex, thick, draw=mainblue}
+]
+\node[box] (profile) {用户 A 查看\\用户 B 资料卡};
+\node[decision, below=of profile] (act) {操作类型};
+\node[box, left=3cm of act] (follow) {关注 B};
+\node[box, below=of follow] (notice) {B 收到关注通知};
+\node[decision, below=of notice] (mutual) {双方均关注};
+\node[box, left=2.6cm of mutual] (mutualyes) {显示已互关};
+\node[box, right=3cm of act] (message) {发送私信};
+\node[decision, below=of message] (limit) {是否互关};
+\node[box, left=2.6cm of limit] (three) {非互关\\最多 3 条};
+\node[box, right=2.6cm of limit] (unlimit) {互关\\不限量};
+\node[box, below=of limit] (msgnotice) {接收方收到\\私信通知};
+
+\draw[arrow] (profile) -- (act);
+\draw[arrow] (act) -- node[above]{关注} (follow);
+\draw[arrow] (follow) -- (notice);
+\draw[arrow] (notice) -- (mutual);
+\draw[arrow] (mutual) -- node[above]{是} (mutualyes);
+\draw[arrow] (act) -- node[above]{私信} (message);
+\draw[arrow] (message) -- (limit);
+\draw[arrow] (limit) -- node[above]{否} (three);
+\draw[arrow] (limit) -- node[above]{是} (unlimit);
+\draw[arrow] (three) |- (msgnotice);
+\draw[arrow] (unlimit) |- (msgnotice);
+\end{tikzpicture}
+}
+\caption{关注与私信业务流程}
+\end{figure}
+
+\subsection{相册管理流程}
+
+\begin{figure}[H]
+\centering
+\resizebox{\textwidth}{!}{%
+\begin{tikzpicture}[
+  node distance=1cm,
+  box/.style={rectangle, rounded corners, draw=mainblue, fill=lightblue, minimum width=3.2cm, minimum height=0.85cm, align=center},
+  decision/.style={diamond, aspect=2.1, draw=mainblue, fill=white, align=center, inner sep=1pt},
+  arrow/.style={-Latex, thick, draw=mainblue}
+]
+\node[box] (login) {用户登录};
+\node[box, below=of login] (load) {加载个人相册};
+\node[box, below=of load] (default) {默认 8 张};
+\node[decision, below=of default] (op) {相册操作};
+\node[box, left=3cm of op] (modify) {修改标题/说明\\或替换图片};
+\node[box, below=of modify] (save) {保存修改};
+\node[box, below=of op] (delete) {删除图片\\数量减 1};
+\node[decision, right=3cm of op] (count) {数量是否 < 8};
+\node[box, above=of count] (upload) {上传新图片};
+\node[box, below=of count] (deny) {提示先删除};
+\node[box, right=2.7cm of count] (success) {上传成功};
+
+\draw[arrow] (login) -- (load);
+\draw[arrow] (load) -- (default);
+\draw[arrow] (default) -- (op);
+\draw[arrow] (op) -- node[above]{修改} (modify);
+\draw[arrow] (modify) -- (save);
+\draw[arrow] (op) -- node[right]{删除} (delete);
+\draw[arrow] (op) -- node[above]{上传} (count);
+\draw[arrow] (count) -- node[right]{否} (deny);
+\draw[arrow] (count) -- node[above]{是} (success);
+\draw[arrow] (upload) -- (count);
+\end{tikzpicture}
+}
+\caption{相册管理业务流程}
+\end{figure}
+
+\section{数据流程说明}
+
+\subsection{顶层数据流}
+
+\begin{figure}[H]
+\centering
+\resizebox{\textwidth}{!}{%
+\begin{tikzpicture}[
+  node distance=1cm,
+  box/.style={rectangle, rounded corners, draw=mainblue, fill=lightblue, minimum width=5.2cm, minimum height=0.85cm, align=center},
+  side/.style={rectangle, rounded corners, draw=linegray, fill=white, minimum width=4cm, minimum height=0.85cm, align=center},
+  arrow/.style={-Latex, thick, draw=mainblue}
+]
+\node[box] (user) {用户 / 管理员};
+\node[box, below=of user] (front) {Hexo 前端页面};
+\node[box, below=of front] (controller) {Spring Boot Controller};
+\node[box, below=of controller] (service) {Service 业务规则与权限校验};
+\node[box, below=of service] (repo) {Repository 数据访问};
+\node[box, below=of repo] (db) {MySQL 数据库};
+\node[side, right=2.2cm of service] (ai) {AI 服务 / 本地审核规则};
+
+\draw[arrow] (user) -- node[right]{HTTP 请求、表单数据、令牌} (front);
+\draw[arrow] (front) -- node[right]{REST / JSON} (controller);
+\draw[arrow] (controller) -- (service);
+\draw[arrow] (service) -- (repo);
+\draw[arrow] (repo) -- (db);
+\draw[arrow] (service) -- (ai);
+\draw[arrow] (ai) -- (service);
+\end{tikzpicture}
+}
+\caption{系统顶层数据流}
+\end{figure}
+
+\subsection{文章数据流}
+
+\begin{enumerate}
+  \item 用户在前端输入文章数据。
+  \item 前端将标题、摘要、正文、分类、标签和附件转换为 JSON。
+  \item Controller 校验登录状态。
+  \item Service 校验文章所有权、分类标签有效性并执行 AI 初审。
+  \item Repository 写入 \texttt{articles}、\texttt{article\_tags}、\texttt{article\_attachments}。
+  \item 公开后向关注者写入 \texttt{notifications}。
+  \item 前端重新查询文章流并渲染。
+\end{enumerate}
+
+\subsection{互动数据流}
+
+\begin{enumerate}
+  \item 点赞写入 \texttt{article\_likes} 或 \texttt{comment\_likes}。
+  \item 评论写入 \texttt{comments}，风险内容标记为 \texttt{PENDING}。
+  \item 内容公开后，系统根据文章作者、父评论作者和操作人生成通知。
+  \item 用户读取通知时更新 \texttt{notifications.read\_flag}。
+\end{enumerate}
+
+\subsection{私信数据流}
+
+\begin{enumerate}
+  \item 发送方提交消息。
+  \item Service 判断双方是否互关，并检查非互关发送条数。
+  \item 合法消息写入 \texttt{private\_messages}。
+  \item 系统为接收方写入私信通知。
+  \item 接收方打开会话后，消息被标记为已读。
+\end{enumerate}
+
+\subsection{相册数据流}
+
+\begin{enumerate}
+  \item 新用户创建后写入 8 条默认 \texttt{gallery\_photos}。
+  \item \texttt{user\_gallery\_settings} 记录账号已完成默认初始化，防止删除后被重建。
+  \item 用户上传时先检查当前数量是否达到 8。
+  \item 用户资料卡按目标用户 ID 查询相册。
+\end{enumerate}
+
+\section{数据库初步设计}
+
+\subsection{数据表}
+
+\begingroup
+\small
+\setlength{\tabcolsep}{4pt}
+\begin{longtable}{p{4.5cm}p{3.1cm}p{6.3cm}}
+\caption{数据库表设计}\\
+\toprule
+\rowcolor{tablehead}\textbf{表名} & \textbf{主要用途} & \textbf{关键字段}\\
+\midrule
+\endfirsthead
+\toprule
+\rowcolor{tablehead}\textbf{表名} & \textbf{主要用途} & \textbf{关键字段}\\
+\midrule
+\endhead
+\texttt{users} & 用户和角色 & id, username, password, email, role, banned\\
+\texttt{categories} & 文章分类 & id, name, description\\
+\texttt{tags} & 文章标签 & id, name\\
+\texttt{articles} & 文章主体 & id, author\_id, category\_id, title, content, status\\
+\texttt{article\_attachments} & 文章附件 & id, article\_id, name, data\_url\\
+\texttt{article\_tags} & 文章标签多对多关系 & article\_id, tag\_id\\
+\texttt{article\_likes} & 文章点赞 & article\_id, user\_id\\
+\texttt{comments} & 评论与回复 & id, article\_id, user\_id, parent\_id, status\\
+\texttt{comment\_likes} & 评论点赞 & comment\_id, user\_id\\
+\texttt{user\_follows} & 用户关注关系 & follower\_id, followed\_id\\
+\texttt{private\_messages} & 私信 & id, sender\_id, receiver\_id, content, read\_flag\\
+\texttt{gallery\_photos} & 用户相册 & id, owner\_id, title, image\_data\_url\\
+\texttt{user\_gallery\_settings} & 相册初始化状态 & user\_id, initialized\_at\\
+\texttt{notifications} & 通知 & id, user\_id, actor\_user\_id, article\_id, type, read\_flag\\
+\texttt{ai\_usage\_logs} & AI 使用记录 & id, user\_id, feature, prompt, thinking, result\\
+\bottomrule
+\end{longtable}
+\endgroup
+
+\subsection{主要关系}
+
+\begin{itemize}
+  \item 一个用户可以发布多篇文章：\texttt{users 1 : N articles}。
+  \item 一个分类可以包含多篇文章：\texttt{categories 1 : N articles}。
+  \item 文章和标签是多对多关系，通过 \texttt{article\_tags} 连接。
+  \item 一篇文章可以有多条评论和多个点赞。
+  \item 评论支持父子关系，\texttt{comments.parent\_id} 指向父评论。
+  \item 用户关注关系是用户表的自关联多对多。
+  \item 私信通过发送者和接收者关联两个用户。
+  \item 一个用户最多保留 8 条相册图片记录。
+  \item 通知关联接收用户、触发用户和可选文章。
+\end{itemize}
+
+\subsection{完整性约束}
+
+\begin{itemize}
+  \item \texttt{users.username} 唯一。
+  \item 点赞和关注关系采用联合主键，避免重复。
+  \item 文章、评论、相册、私信等通过外键关联用户。
+  \item 删除文章时附件、标签关联、点赞和评论级联清理。
+  \item 删除用户时关注、相册和私信等账户数据级联清理。
+\end{itemize}
+
+\section{AI 功能需求说明}
+
+\subsection{AI 写作辅助}
+
+\begin{itemize}
+  \item 根据标题和正文生成 4--6 条文章大纲。
+  \item 根据正文生成适合首页展示的摘要。
+  \item 根据内容推荐 3--6 个标签。
+  \item 优先从已有分类中推荐分类，也允许推荐新分类。
+\end{itemize}
+
+\subsection{AI 博客问答}
+
+\begin{itemize}
+  \item 用户可以对博客内容提出自然语言问题。
+  \item 系统结合已公开文章生成回答。
+  \item 返回可能的依据文章标题。
+  \item AI 接口必须登录后使用。
+\end{itemize}
+
+\subsection{AI 内容初审}
+
+\begin{itemize}
+  \item 文章和评论发布前进行风险识别。
+  \item 重点识别广告引流、辱骂攻击、低俗色情、博彩诈骗等内容。
+  \item 正常内容直接公开。
+  \item 风险内容仅标记为待审核，不由 AI 最终删除。
+  \item 管理员拥有最终通过或驳回权。
+\end{itemize}
+
+\subsection{AI 日志}
+
+\begin{itemize}
+  \item 记录功能名称、提示词、处理摘要、输出结果和时间。
+  \item 管理员可查看日志。
+  \item API Key 通过环境变量配置，不写入仓库。
+  \item 外部模型不可用时应返回明确错误；只有显式开启时才允许本地兜底。
+\end{itemize}
+
+\section{小组成员分工}
+
+
+\begingroup
+\small
+\setlength{\tabcolsep}{4pt}
+\begin{longtable}{>{\centering\arraybackslash}p{1.8cm}>{\centering\arraybackslash}p{2.35cm}p{2.15cm}p{6.8cm}>{\centering\arraybackslash}p{1.25cm}}
+\caption{小组成员分工表}\\
+\toprule
+\rowcolor{tablehead}\textbf{成员} & \textbf{学号} & \textbf{主要分工} & \textbf{具体成果} & \textbf{贡献占比}\\
+\midrule
+\endfirsthead
+\toprule
+\rowcolor{tablehead}\textbf{成员} & \textbf{学号} & \textbf{主要分工} & \textbf{具体成果} & \textbf{贡献占比}\\
+\midrule
+\endhead
+谢明航 & 2429730223 & 需求与架构 & 需求分析、系统架构、任务协调、Hexo 页面、整体设计、设计 AI 功能模块并接入 DeepSeek & 33.3\%\\
+付奕硕 & 2429730103 & 模块补充、测试 & 资料卡模块、通知和响应模块、互关模块、私信模块、优化评论功能、优化审核功能、测试项目所有功能 & 33.3\%\\
+杨禹昊 & 2429730125 & 调整、测试 & 权限与业务逻辑、优化相册展示、测试 DeepSeek 接入 & 33.3\%\\
+\bottomrule
+\end{longtable}
+\endgroup
+
+\section{验收标准}
+
+\begin{enumerate}
+  \item 前端主要页面均可访问。
+  \item 普通用户和管理员权限符合角色要求。
+  \item 文章、评论、点赞、关注、私信、通知和相册数据可持久化。
+  \item AI 正常内容直接公开，风险内容进入管理员审核。
+  \item 用户名唯一、邮箱按本人/管理员权限显示或脱敏、密码不返回前端。
+  \item 删除文章后关联数据完整清理。
+  \item 五项 AI 功能可调用，并生成日志。
+  \item Maven 打包、Hexo 生成和全功能测试通过。
+\end{enumerate}
+
+\end{document}

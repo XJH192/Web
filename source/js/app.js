@@ -128,6 +128,50 @@ window.onload = function() {
         catch (error) { return null; }
     }
 
+    function sidebarToken() {
+        return localStorage.getItem('blogToken') || '';
+    }
+
+    function isSidebarGuestMode() {
+        return sessionStorage.getItem('cialloGuestMode') === '1' || !sidebarToken();
+    }
+
+    function setSidebarLinkByHref(href, visible) {
+        document.querySelectorAll('a[href]').forEach(link => {
+            const raw = link.getAttribute('href') || '';
+            if (raw !== href && !raw.endsWith(href)) return;
+            const target = link.classList.contains('nexmoe-list-item')
+                ? link
+                : (link.closest('.nexmoe-list-item') || link);
+            target.style.display = visible
+                ? (target.classList.contains('nexmoe-list-item') ? 'flex' : 'inline-block')
+                : 'none';
+        });
+    }
+
+    function applySidebarRoleNavigation() {
+        const user = isSidebarGuestMode() ? null : readSidebarUser();
+        if (!user) {
+            setSidebarLinkByHref('/blog.html', true);
+            setSidebarLinkByHref('/admin.html', false);
+            setSidebarLinkByHref('/memos.html', false);
+            setSidebarLinkByHref('/messages.html', false);
+            return null;
+        }
+        if (user.role === 'ADMIN') {
+            setSidebarLinkByHref('/blog.html', false);
+            setSidebarLinkByHref('/admin.html', true);
+            setSidebarLinkByHref('/memos.html', true);
+            setSidebarLinkByHref('/messages.html', true);
+        } else {
+            setSidebarLinkByHref('/blog.html', true);
+            setSidebarLinkByHref('/admin.html', false);
+            setSidebarLinkByHref('/memos.html', true);
+            setSidebarLinkByHref('/messages.html', true);
+        }
+        return user;
+    }
+
     function countBy(items, getter) {
         const map = new Map();
         (items || []).forEach(item => {
@@ -209,12 +253,13 @@ window.onload = function() {
 
     async function refreshSidebar() {
         try {
-            const user = readSidebarUser();
+            const user = applySidebarRoleNavigation();
             const articlePath = user ? (user.role === 'ADMIN' ? '/admin/articles' : '/articles/mine') : '/articles';
             const result = await Promise.all([fetchJson('/tags'), fetchJson('/categories'), fetchJson(articlePath, Boolean(user))]);
             sidebarData = { tags: result[0] || [], categories: result[1] || [], articles: result[2] || [] };
             renderSidebar();
         } catch (error) {
+            applySidebarRoleNavigation();
             renderSidebar();
         }
     }

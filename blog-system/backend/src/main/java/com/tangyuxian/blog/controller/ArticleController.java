@@ -43,7 +43,7 @@ public class ArticleController {
                                            @RequestParam(value = "keyword", required = false) String keyword,
                                            @RequestParam(value = "categoryId", required = false) Long categoryId,
                                            @RequestParam(value = "tagId", required = false) Long tagId) {
-        User user = authService.requireUser(token);
+        User user = authService.optionalUser(token);
         return ApiResponse.ok(articleService.feed(user, keyword, categoryId, tagId));
     }
 
@@ -59,8 +59,8 @@ public class ArticleController {
     @GetMapping("/{id}")
     public ApiResponse<Article> detail(@RequestHeader(value = "X-Token", required = false) String token,
                                        @PathVariable Long id) {
-        User user = authService.requireUser(token);
-        return ApiResponse.ok(articleService.detail(id, true, user.getId()));
+        User user = authService.optionalUser(token);
+        return ApiResponse.ok(articleService.detail(id, true, user == null ? null : user.getId()));
     }
 
     @PostMapping

@@ -170,6 +170,22 @@
     }
     .primary-btn:hover { background: var(--primary-strong); transform: translateY(-1px); }
     .primary-btn:active { transform: translateY(0); }
+    .guest-btn {
+      width: 100%;
+      min-height: 44px;
+      margin-top: 10px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 0 16px;
+      font: inherit;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      color: var(--primary-strong);
+      background: #fff7f1;
+      transition: background .18s ease, transform .18s ease;
+    }
+    .guest-btn:hover { background: var(--primary-soft); transform: translateY(-1px); }
     .switch-link {
       display: block;
       margin-top: 18px;
@@ -254,6 +270,7 @@
             </div>
             <button class="primary-btn" type="submit">开门进入小窝</button>
           </form>
+          <button class="guest-btn" type="button" id="guest-browse-btn">游客浏览公开内容</button>
           <div id="login-status" class="status" aria-live="polite"></div>
           <div class="switch-link">
             还没有小窝账号？<button type="button" id="show-register">领取一个</button>
@@ -301,6 +318,7 @@
       const registerForm = document.getElementById('register-form');
       const loginStatus = document.getElementById('login-status');
       const registerStatus = document.getElementById('register-status');
+      const guestBrowseBtn = document.getElementById('guest-browse-btn');
 
       function switchPanel(hidePanel, showPanel) {
         hidePanel.classList.remove('active');
@@ -322,9 +340,21 @@
       function setStatus(el, text) { el.textContent = text || ''; }
       function redirectByRole(user) { location.href = user.role === 'ADMIN' ? '/admin.html' : '/blog.html'; }
       function saveSession(data) {
+        sessionStorage.removeItem('cialloGuestMode');
         localStorage.setItem('blogToken', data.token);
         localStorage.setItem('blogUser', JSON.stringify(data.user));
       }
+      function clearSession() {
+        localStorage.removeItem('blogToken');
+        localStorage.removeItem('blogUser');
+      }
+
+      guestBrowseBtn.addEventListener('click', function () {
+        clearSession();
+        sessionStorage.setItem('cialloGuestMode', '1');
+        setStatus(loginStatus, '正在以游客身份进入，只能浏览公开内容...');
+        setTimeout(function () { location.href = '/blog.html?guest=1'; }, 180);
+      });
 
       async function request(path, options) {
         let response;

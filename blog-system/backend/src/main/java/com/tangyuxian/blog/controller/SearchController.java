@@ -32,7 +32,8 @@ public class SearchController {
     @GetMapping
     public ApiResponse<SearchResult> search(@RequestHeader(value = "X-Token", required = false) String token,
                                             @RequestParam(value = "keyword", required = false) String keyword) {
-        User currentUser = authService.requireUser(token);
+        User currentUser = authService.optionalUser(token);
+        Long currentUserId = currentUser == null ? null : currentUser.getId();
         String query = keyword == null ? "" : keyword.trim().toLowerCase();
         SearchResult result = new SearchResult();
         if (query.isEmpty()) return ApiResponse.ok(result);
@@ -43,8 +44,8 @@ public class SearchController {
             String username = user.getUsername() == null ? "" : user.getUsername().toLowerCase();
             String nickname = user.getNickname() == null ? "" : user.getNickname().toLowerCase();
             if (!username.contains(query) && !nickname.contains(query)) continue;
-            boolean self = currentUser.getId().equals(user.getId());
-            boolean following = !self && repository.hasUserFollow(currentUser.getId(), user.getId());
+            boolean self = currentUserId != null && currentUserId.equals(user.getId());
+            boolean following = currentUserId != null && !self && repository.hasUserFollow(currentUserId, user.getId());
             UserSearchItem item = new UserSearchItem();
             item.setId(user.getId());
             item.setUsername(user.getUsername());
@@ -57,7 +58,7 @@ public class SearchController {
             if (users.size() >= 10) break;
         }
         result.setUsers(users);
-        result.setArticles(articleService.searchPublishedByTitle(query, currentUser.getId(), 12));
+        result.setArticles(articleService.searchPublishedByTitle(query, currentUserId, 12));
         return ApiResponse.ok(result);
     }
 }

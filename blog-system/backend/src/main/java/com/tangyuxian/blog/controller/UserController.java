@@ -72,11 +72,12 @@ public class UserController {
     @GetMapping("/{id}/profile")
     public ApiResponse<UserProfile> profile(@RequestHeader(value = "X-Token", required = false) String token,
                                             @PathVariable Long id) {
-        User currentUser = authService.requireUser(token);
+        User currentUser = authService.optionalUser(token);
         User target = requireTarget(id);
-        FollowStatus status = buildStatus(currentUser.getId(), id);
-        boolean ownProfile = currentUser.getId().equals(id);
-        boolean privateDataVisible = ownProfile || currentUser.getRole() == Role.ADMIN;
+        Long currentUserId = currentUser == null ? null : currentUser.getId();
+        FollowStatus status = buildStatus(currentUserId, id);
+        boolean ownProfile = currentUserId != null && currentUserId.equals(id);
+        boolean privateDataVisible = ownProfile || (currentUser != null && currentUser.getRole() == Role.ADMIN);
         UserProfile profile = new UserProfile();
         profile.setId(target.getId());
         profile.setUsername(target.getUsername());
@@ -90,7 +91,7 @@ public class UserController {
         profile.setFollowedByCurrentUser(status.isFollowedByCurrentUser());
         profile.setFollowsCurrentUser(status.isFollowsCurrentUser());
         profile.setMutualFollow(status.isMutualFollow());
-        profile.setArticles(articleService.listPublishedByAuthor(id, currentUser.getId()));
+        profile.setArticles(articleService.listPublishedByAuthor(id, currentUserId));
         profile.setPhotos(galleryPhotoService.listByOwner(id));
         return ApiResponse.ok(profile);
     }
@@ -118,9 +119,9 @@ public class UserController {
     }
 
     private FollowStatus buildStatus(Long currentUserId, Long targetUserId) {
-        boolean self = currentUserId.equals(targetUserId);
-        boolean followedByCurrentUser = !self && repository.hasUserFollow(currentUserId, targetUserId);
-        boolean followsCurrentUser = !self && repository.hasUserFollow(targetUserId, currentUserId);
+        boolean self = currentUserId != null && currentUserId.equals(targetUserId);
+        boolean followedByCurrentUser = currentUserId != null && !self && repository.hasUserFollow(currentUserId, targetUserId);
+        boolean followsCurrentUser = currentUserId != null && !self && repository.hasUserFollow(targetUserId, currentUserId);
         return new FollowStatus(
                 targetUserId,
                 repository.countUserFollowers(targetUserId),

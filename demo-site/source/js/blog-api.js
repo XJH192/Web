@@ -5,10 +5,12 @@
   function $(id) { return document.getElementById(id); }
   function token() { return localStorage.getItem('blogToken') || ''; }
   function storedUser() {
+    if (!token()) return null;
     try { return JSON.parse(localStorage.getItem('blogUser') || 'null'); }
     catch (error) { return null; }
   }
   function setSession(loginResponse) {
+    sessionStorage.removeItem('cialloGuestMode');
     localStorage.setItem('blogToken', loginResponse.token);
     localStorage.setItem('blogUser', JSON.stringify(loginResponse.user));
     state.currentUser = loginResponse.user;
@@ -18,6 +20,15 @@
     localStorage.removeItem('blogToken');
     localStorage.removeItem('blogUser');
     state.currentUser = null;
+  }
+  function isGuestBrowsing(user) {
+    return !user && !token();
+  }
+  function guestLoginHref() {
+    return '/login.html?redirect=' + encodeURIComponent(location.pathname + location.search);
+  }
+  function guestActionHint(action) {
+    return `游客只能浏览公开内容，${action || '操作'}需要先登录。`;
   }
   function escapeHtml(value) {
     return String(value == null ? '' : value)
@@ -108,7 +119,15 @@
     });
   }
   function applyRoleNavigation(user) {
-    if (!user) return;
+    if (!user) {
+      setLinksByHref('/blog.html', true);
+      setLinksByHref('/admin.html', false);
+      setLinksByHref('/memos.html', false);
+      setLinksByHref('/messages.html', false);
+      document.querySelectorAll('.admin-only-link').forEach(el => { el.style.display = 'none'; });
+      document.querySelectorAll('.user-only-link').forEach(el => { el.style.display = 'inline-block'; });
+      return;
+    }
     if (user.role === 'ADMIN') {
       setLinksByHref('/admin.html', true);
       setLinksByHref('/blog.html', false);
@@ -304,6 +323,31 @@
       tagNames: selectedTagNames()
     };
   }
+  function articleEditorPayload(statusOverride) {
+    const selectedCategory = $('article-category') ? $('article-category').value : '';
+    return {
+      title: $('article-title').value,
+      summary: $('article-summary').value,
+      content: $('article-content').value,
+      categoryId: selectedCategory ? Number(selectedCategory) : null,
+      categoryName: selectedCategoryName(),
+      tagIds: selectedTagIds(),
+      tagNames: selectedTagNames(),
+      attachments: normalizeAttachments(state.editorAttachments),
+      status: statusOverride || ($('article-status') ? $('article-status').value : 'PUBLISHED')
+    };
+  }
+  function resetArticleEditorForm() {
+    const form = $('article-form');
+    if (form) form.reset();
+    if ($('article-id')) $('article-id').value = '';
+    if ($('article-status')) $('article-status').value = 'PUBLISHED';
+    setCategoryInput('');
+    setTagInput([]);
+    state.editorAttachments = [];
+    renderAttachments();
+    if ($('ai-output')) $('ai-output').innerHTML = '';
+  }
   function selectedTagIds() { return []; }
   function renderTagPreview() {
     const box = $('article-tags');
@@ -421,6 +465,7 @@
     });
   }
   function commentLikeButton(comment, articleId) {
+    if (!state.currentUser && !storedUser()) return '';
     const liked = !!comment.likedByCurrentUser;
     return `<button type="button" class="secondary comment-like-btn ${liked ? 'is-liked' : ''}" data-like-comment="${comment.id}" data-comment-liked="${liked ? 'true' : 'false'}" data-comment-article="${articleId || comment.articleId}" aria-pressed="${liked ? 'true' : 'false'}">${liked ? '已赞' : '点赞'} ${comment.likeCount || 0}</button>`;
   }
@@ -807,6 +852,19 @@
     }
     target.textContent = JSON.stringify(data, null, 2);
   }
+  async function runArticleAi(path, statusTargetId, outputTargetId) {
+    const outputId = outputTargetId || 'ai-output';
+    try {
+      show(statusTargetId, 'AI 正在生成...');
+      const data = await api(path, { method: 'POST', body: JSON.stringify(aiPayload()) });
+      renderAiResult(outputId, data);
+      show(statusTargetId, data.error ? 'DeepSeek 调用失败，错误已写入 AI 日志' : 'AI 生成完成，记录已写入数据库日志');
+    } catch (error) {
+      show(statusTargetId, error.message);
+      const target = $(outputId);
+      if (target) target.textContent = error.message;
+    }
+  }
   function buildQuery(fields) {
     const params = new URLSearchParams();
     fields.forEach(function (field) {
@@ -873,13 +931,29 @@
   }
 
   async function initBlogPage() {
-    const user = await requireLogin();
-    if (user.role === 'ADMIN') {
+    const user = await verifySession();
+    const guest = isGuestBrowsing(user);
+    if (user && user.role === 'ADMIN') {
       location.href = '/admin.html';
       return;
     }
     applyRoleNavigation(user);
     await loadTaxonomy();
+    if (guest) {
+      sessionStorage.setItem('cialloGuestMode', '1');
+      const kicker = document.querySelector('#blog-dashboard-section .section-kicker');
+      const title = document.querySelector('#blog-dashboard-section h2');
+      if (kicker) kicker.textContent = '游客浏览';
+      if (title) title.textContent = '公开博客浏览';
+      if ($('blog-social-counts')) $('blog-social-counts').hidden = true;
+      if ($('blog-social-panel')) $('blog-social-panel').hidden = true;
+      if ($('blog-manage-section')) $('blog-manage-section').hidden = true;
+      if ($('blog-editor-section')) $('blog-editor-section').hidden = true;
+      if ($('logout-btn')) $('logout-btn').textContent = '登录 / 注册';
+      $('blog-user-summary').textContent = '当前为游客浏览模式：可以查看公开文章、评论、分类、标签、归档、资料卡和相册；点赞、评论、关注、私信、发布文章、管理相册和使用 AI 需要登录。';
+      const homeIntro = document.querySelector('#blog-home-section .blog-muted');
+      if (homeIntro) homeIntro.textContent = '游客可浏览 AI 初审通过或管理员确认公开的文章；互动操作请先登录。';
+    }
 
     let myFollowStatus = null;
     async function refreshOwnSocialCounts() {
@@ -891,15 +965,19 @@
         myFollowStatus = null;
       }
     }
-    await refreshOwnSocialCounts();
-    const socialSummary = myFollowStatus ? `粉丝 ${myFollowStatus.followerCount || 0}，关注 ${myFollowStatus.followingCount || 0}。` : '';
-    $('blog-user-summary').textContent = `当前用户：${userLine(user)}。${socialSummary}文章和评论会先经过 AI 初审，正常内容直接公开，疑似问题再交管理员判断。`;
+    if (!guest) {
+      await refreshOwnSocialCounts();
+      const socialSummary = myFollowStatus ? `粉丝 ${myFollowStatus.followerCount || 0}，关注 ${myFollowStatus.followingCount || 0}。` : '';
+      $('blog-user-summary').textContent = `当前用户：${userLine(user)}。${socialSummary}文章和评论会先经过 AI 初审，正常内容直接公开，疑似问题再交管理员判断。`;
+    }
     renderTaxonomyControls();
     applyHomeFiltersFromUrl();
-    setTagInput([]);
-    state.editorAttachments = [];
-    renderAttachments();
-    const localArticleDraftKey = 'cialloLocalArticleDraft:' + user.id;
+    if (!guest) {
+      setTagInput([]);
+      state.editorAttachments = [];
+      renderAttachments();
+    }
+    const localArticleDraftKey = guest ? '' : 'cialloLocalArticleDraft:' + user.id;
 
     function localDraftStatus(text) {
       const target = $('local-article-draft-status');
@@ -965,18 +1043,18 @@
       return true;
     }
 
-    restoreLocalArticleDraft();
+    if (!guest) restoreLocalArticleDraft();
 
     function renderSocialUsers(items) {
       return (items || []).map(function (item) {
         const relation = item.ownProfile
           ? '<span class="status-pill success">你自己</span>'
-          : followButton({
+          : (guest ? '<span class="status-pill muted">登录后可关注</span>' : followButton({
               authorId: item.id,
               authorFollowedByCurrentUser: item.followedByCurrentUser,
               mutualFollowWithAuthor: item.mutualFollow
-            });
-        const messageLink = item.ownProfile ? '' : `<a class="secondary-link social-message-link" href="/messages.html?userId=${item.id}">私信</a>`;
+            }));
+        const messageLink = (guest || item.ownProfile) ? '' : `<a class="secondary-link social-message-link" href="/messages.html?userId=${item.id}">私信</a>`;
         return `<article class="social-user-card">
           <div>
             <strong>${userProfileLink(item.id, '@' + item.username, 'search-user-link')}</strong>
@@ -1072,11 +1150,11 @@
       const userHtml = users.map(function (item) {
         const relation = item.ownProfile
           ? '<span class="status-pill success">你自己</span>'
-          : followButton({
+          : (guest ? '<span class="status-pill muted">登录后可关注</span>' : followButton({
               authorId: item.id,
               authorFollowedByCurrentUser: item.followedByCurrentUser,
               mutualFollowWithAuthor: item.mutualFollow
-            });
+            }));
         return `<article class="search-user-card">
           <div>
             <strong>${userProfileLink(item.id, '@' + item.username, 'search-user-link')}</strong>
@@ -1084,7 +1162,7 @@
           </div>
           <div class="social-user-actions">
             ${relation}
-            ${item.ownProfile ? '' : `<a class="secondary-link social-message-link" href="/messages.html?userId=${item.id}">私信</a>`}
+            ${(guest || item.ownProfile) ? '' : `<a class="secondary-link social-message-link" href="/messages.html?userId=${item.id}">私信</a>`}
           </div>
         </article>`;
       }).join('') || '<p class="blog-muted">没有匹配的用户。</p>';
@@ -1173,14 +1251,14 @@
             ${renderCompactAttachments(article.attachments)}
             <div class="article-actions">
               <a class="blog-link-btn" href="/article.html?id=${article.id}">查看全文</a>
-              ${likeButton(article)}
+              ${guest ? '' : likeButton(article)}
               <button type="button" class="secondary" data-home-comments="${article.id}">查看评论 ${article.commentCount || 0}</button>
             </div>
             <div class="home-comment-box" data-comment-box="${article.id}">
-              <form data-home-comment-form="${article.id}" class="blog-form inline-comment-form">
+              ${guest ? `<p class="blog-muted">游客只能浏览公开评论，<a href="${guestLoginHref()}">登录后</a>可点赞、评论、关注和私信。</p>` : `<form data-home-comment-form="${article.id}" class="blog-form inline-comment-form">
                 <textarea data-comment-input="${article.id}" required rows="3" placeholder="写下评论，AI 初审正常会直接公开"></textarea>
                 <button type="submit">提交评论</button>
-              </form>
+              </form>`}
               <div class="blog-status" data-comment-status="${article.id}"></div>
               <div data-comment-list="${article.id}" class="feed-comments"></div>
             </div>
@@ -1478,14 +1556,28 @@
     if ($('ai-category-btn')) $('ai-category-btn').addEventListener('click', () => runAi('/ai/category', aiPayload()));
 
     await loadHomeArticles(true);
-    await loadMyArticles();
-    await showUnreadNotifications('你有新的博客消息');
+    if (!guest) {
+      await loadMyArticles();
+      await showUnreadNotifications('你有新的博客消息');
+    }
   }
 
   async function initArticlePage() {
-    const user = await requireLogin();
+    const user = await verifySession();
+    const guest = isGuestBrowsing(user);
+    if (guest) sessionStorage.setItem('cialloGuestMode', '1');
     applyRoleNavigation(user);
     const id = new URLSearchParams(location.search).get('id') || '1';
+    if (guest) {
+      const commentForm = $('comment-form');
+      if (commentForm) {
+        commentForm.innerHTML = `<p class="blog-muted">游客只能浏览公开评论，<a href="${guestLoginHref()}">登录后</a>可发表评论、回复和点赞。</p>`;
+      }
+      const qaPanel = $('qa-btn') ? $('qa-btn').closest('.blog-panel') : null;
+      if (qaPanel) {
+        qaPanel.innerHTML = '<p class="blog-muted">博客问答属于 AI 功能，游客模式不可使用；登录后可向 AI 提问。</p>';
+      }
+    }
     async function loadDetail() {
       const article = await api('/articles/' + id);
       $('article-detail').innerHTML = `
@@ -1493,13 +1585,13 @@
         ${authorSocialRow(article)}
         <p class="article-meta">分类：${escapeHtml(article.categoryName)} | ${formatDate(article.createdAt)} | ${articleStats(article)}</p>
         <p><span class="status-pill ${statusClass(article.status)}">${statusText(article.status)}</span> ${(article.tagNames || []).map(t => `<span class="tag-pill">${escapeHtml(t)}</span>`).join('')}</p>
-        <div class="article-detail-actions">${likeButton(article)}</div>
+        <div class="article-detail-actions">${guest ? `<p class="blog-muted">游客只能浏览公开内容，<a href="${guestLoginHref()}">登录后</a>可点赞、评论、关注和私信。</p>` : likeButton(article)}</div>
         ${renderArticleContent(article.content, article.attachments || [])}
       `;
     }
     async function loadComments() {
       const comments = await api('/articles/' + id + '/comments');
-      $('comment-list').innerHTML = renderCommentTree(comments, id, true);
+      $('comment-list').innerHTML = renderCommentTree(comments, id, !guest);
     }
     $('article-detail').addEventListener('click', async function (event) {
       const likeButtonEl = event.target.closest('[data-like-article]');
@@ -1560,6 +1652,10 @@
     });
     $('comment-form').addEventListener('submit', async function (event) {
       event.preventDefault();
+      if (guest) {
+        show('comment-status', guestActionHint('评论'));
+        return;
+      }
       try {
         const comment = await api('/articles/' + id + '/comments', {
           method: 'POST',
@@ -1578,7 +1674,11 @@
         alert(error.message);
       }
     });
-    $('qa-btn').addEventListener('click', async function () {
+    if ($('qa-btn')) $('qa-btn').addEventListener('click', async function () {
+      if (guest) {
+        $('qa-output').textContent = guestActionHint('AI 问答');
+        return;
+      }
       try {
         const data = await api('/ai/qa', { method: 'POST', body: JSON.stringify({ question: $('qa-question').value }) });
         renderAiResult('qa-output', data);
@@ -1590,7 +1690,9 @@
   }
 
   async function initUserProfilePage() {
-    const currentUser = await requireLogin();
+    const currentUser = await verifySession();
+    const guest = isGuestBrowsing(currentUser);
+    if (guest) sessionStorage.setItem('cialloGuestMode', '1');
     applyRoleNavigation(currentUser);
     const userId = new URLSearchParams(location.search).get('id');
     if (!userId) {
@@ -1603,12 +1705,12 @@
       const email = privateDataVisible ? (profile.email || '未填写') : (profile.maskedEmail || '未公开');
       const relation = profile.ownProfile
         ? '<span class="status-pill success">这是你自己</span>'
-        : followButton({
+        : (guest ? '<span class="status-pill muted">登录后可关注</span>' : followButton({
             authorId: profile.id,
             authorFollowedByCurrentUser: profile.followedByCurrentUser,
             mutualFollowWithAuthor: profile.mutualFollow
-          });
-      const messageLink = profile.ownProfile ? '' : `<a class="blog-link-btn secondary-link" href="/messages.html?userId=${profile.id}">发私信</a>`;
+          }));
+      const messageLink = (guest || profile.ownProfile) ? '' : `<a class="blog-link-btn secondary-link" href="/messages.html?userId=${profile.id}">发私信</a>`;
       $('user-profile-card').innerHTML = `
         <div class="user-profile-main">
           <div>
@@ -1631,7 +1733,9 @@
       `;
       const intro = $('user-profile-intro');
       if (intro) {
-        intro.textContent = privateDataVisible
+        intro.textContent = guest
+          ? '游客模式仅展示公开资料、脱敏邮箱、公开文章与个人相册；关注、私信等互动需要登录。'
+          : privateDataVisible
           ? '当前权限可查看完整邮箱，同时展示公开文章与个人相册。'
           : '邮箱经过脱敏处理，展示该用户的公开文章与个人相册。';
       }
@@ -2026,6 +2130,7 @@
         const comments = await api('/admin/comments');
         const aiLogs = await api('/admin/ai-logs');
         await loadTaxonomy();
+        renderTaxonomyControls();
         const statLabels = {
           userCount: '用户数', articleCount: '文章数', commentCount: '评论数', categoryCount: '分类数',
           tagCount: '标签数', totalViews: '总阅读量', aiUsageCount: 'AI 调用次数'
@@ -2083,6 +2188,49 @@
       clearSession();
       location.href = '/login.html';
     });
+    if ($('article-tag-input')) $('article-tag-input').addEventListener('input', renderTagPreview);
+    if ($('article-category-custom')) $('article-category-custom').addEventListener('input', function () { if ($('article-category-custom').value.trim()) $('article-category').value = ''; });
+    if ($('article-category')) $('article-category').addEventListener('change', function () { if ($('article-category').value && $('article-category-custom')) $('article-category-custom').value = ''; });
+    if ($('article-files')) $('article-files').addEventListener('change', async function (event) {
+      try {
+        show('admin-publish-status', '正在读取附件...');
+        const files = await readFilesAsAttachments(event.target.files);
+        state.editorAttachments = normalizeAttachments(state.editorAttachments).concat(files).slice(0, 8);
+        renderAttachments();
+        event.target.value = '';
+        show('admin-publish-status', '附件已加入文章，发布后会同步保存');
+      } catch (error) {
+        show('admin-publish-status', error.message);
+      }
+    });
+    if ($('article-attachments')) $('article-attachments').addEventListener('click', function (event) {
+      const index = event.target.getAttribute('data-attachment-remove');
+      if (index == null) return;
+      state.editorAttachments.splice(Number(index), 1);
+      renderAttachments();
+    });
+    if ($('article-reset-btn')) $('article-reset-btn').addEventListener('click', function () {
+      resetArticleEditorForm();
+      show('admin-publish-status', '表单已清空');
+    });
+    if ($('article-form')) $('article-form').addEventListener('submit', async function (event) {
+      event.preventDefault();
+      const payload = articleEditorPayload('PUBLISHED');
+      try {
+        show('admin-publish-status', '正在发布文章...');
+        const savedArticle = await api('/articles', { method: 'POST', body: JSON.stringify(payload) });
+        resetArticleEditorForm();
+        await refresh();
+        if (window.refreshCialloSidebar) window.refreshCialloSidebar();
+        show('admin-publish-status', `管理员已直接发布《${savedArticle.title || payload.title}》`);
+      } catch (error) {
+        show('admin-publish-status', error.message);
+      }
+    });
+    if ($('ai-outline-btn')) $('ai-outline-btn').addEventListener('click', () => runArticleAi('/ai/outline', 'admin-publish-status'));
+    if ($('ai-summary-btn')) $('ai-summary-btn').addEventListener('click', () => runArticleAi('/ai/summary', 'admin-publish-status'));
+    if ($('ai-tags-btn')) $('ai-tags-btn').addEventListener('click', () => runArticleAi('/ai/tags', 'admin-publish-status'));
+    if ($('ai-category-btn')) $('ai-category-btn').addEventListener('click', () => runArticleAi('/ai/category', 'admin-publish-status'));
     $('admin-ai-logs').addEventListener('input', function (event) {
       if (event.target.id !== 'admin-ai-keyword') return;
       state.adminAiLogKeyword = event.target.value;
@@ -2185,6 +2333,7 @@
         await refresh();
       } catch (error) { show('admin-status', error.message); }
     });
+    resetArticleEditorForm();
     refresh();
   }
 
